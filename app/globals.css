@@ -1,0 +1,298 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "StreetDrips";
+  src: url("/fonts/StreetDrips.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "StreetDrips";
+  src: url("/fonts/StreetDripsExtrude.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "StreetDripsExtrude";
+  src: url("/fonts/StreetDripsExtrude.ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* Boojy Streetwear tokens — warm, premium neutrals with vibrant accents.
+       Light mode evokes a clean, high-end boutique showroom. */
+    --background: 35 30% 94%;
+    --foreground: 20 15% 12%;
+    --card: 40 20% 99%;
+    --card-foreground: 20 15% 12%;
+    --popover: 40 20% 99%;
+    --popover-foreground: 20 15% 12%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 20% 91%;
+    --secondary-foreground: 20 12% 18%;
+    --muted: 35 20% 91%;
+    --muted-foreground: 20 8% 46%;
+    --accent: 35 20% 90%;
+    --accent-foreground: 20 12% 18%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 35 18% 86%;
+    --input: 35 18% 84%;
+    --ring: 221 83% 53%;
+    /* Sticker palette — the store's signature accent set. */
+    --sticker-blue: 221 83% 53%;
+    --sticker-amber: 38 92% 50%;
+    --sticker-green: 152 60% 40%;
+    --sticker-red: 0 72% 51%;
+    --sticker-purple: 262 60% 55%;
+    --chart-1: 221 83% 53%;
+    --chart-2: 38 92% 50%;
+    --chart-3: 152 60% 40%;
+    --chart-4: 340 75% 50%;
+    --chart-5: 262 60% 55%;
+    --radius: 0px;
+
+    /* Standard Web Development Responsive Layout Container & Gutters (from NACOS) */
+    --container-max-width: 90rem;
+    --gutter-mobile: 16px;
+    --gutter-tablet: 20px;
+    --gutter-desktop: 24px;
+  }
+
+  .dark {
+    /* Dark mode — deep, sophisticated, collector's display case. */
+    --background: 230 30% 5%;
+    --foreground: 30 15% 94%;
+    --card: 230 25% 8%;
+    --card-foreground: 30 15% 94%;
+    --popover: 230 25% 8%;
+    --popover-foreground: 30 15% 94%;
+    --primary: 218 92% 63%;
+    --primary-foreground: 230 30% 5%;
+    --secondary: 230 20% 12%;
+    --secondary-foreground: 30 15% 94%;
+    --muted: 230 20% 12%;
+    --muted-foreground: 230 10% 52%;
+    --accent: 230 20% 13%;
+    --accent-foreground: 30 15% 94%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 15% 15%;
+    --input: 230 15% 17%;
+    --ring: 218 92% 63%;
+    --chart-1: 218 92% 63%;
+    --chart-2: 38 95% 58%;
+    --chart-3: 152 65% 45%;
+    --chart-4: 340 80% 58%;
+    --chart-5: 262 70% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply overflow-x-hidden;
+    scrollbar-gutter: stable;
+    /* Spaces between text characters and between words for clear readability */
+    letter-spacing: 0.05em;
+    word-spacing: 0.35em;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    letter-spacing: 0.05em;
+    word-spacing: 0.35em;
+  }
+
+  /* Street Drips Extrude & bold headings:
+     Because of the 3D extrude drop-shadow, characters and words need generous space
+     between individual letters and between distinct words so words don't blur together. */
+  h1, h2, h3, h4, h5, h6,
+  .font-display,
+  .font-extrude,
+  strong,
+  b,
+  .font-bold,
+  .font-semibold,
+  [class*="font-bold"],
+  [class*="font-semibold"] {
+    letter-spacing: 0.08em;
+    word-spacing: 0.48em;
+  }
+
+  /* Prevent tight tracking classes from collapsing spaces between letters and words */
+  .tracking-tighter {
+    letter-spacing: 0.03em !important;
+  }
+  .tracking-tight {
+    letter-spacing: 0.05em !important;
+  }
+  .tracking-normal {
+    letter-spacing: 0.07em !important;
+  }
+  .tracking-wide {
+    letter-spacing: 0.1em !important;
+  }
+  .tracking-wider {
+    letter-spacing: 0.15em !important;
+  }
+  .tracking-widest {
+    letter-spacing: 0.22em !important;
+  }
+
+  /* Suppress native browser password-reveal icons so the custom toggle is the only one. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
+  html body[data-scroll-locked] {
+    overflow: clip !important;
+    margin-right: 0 !important;
+  }
+
+  html .right-scroll-bar-position {
+    right: 0 !important;
+  }
+
+  html .width-before-scroll-bar {
+    margin-right: 0 !important;
+  }
+}
+
+@layer utilities {
+
+  /* Hairline lattice — a quiet nod to the cube's face grid. Used in the hero
+     behind the content, masked so it fades out before the section edges. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.65) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.65) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Shimmer skeleton — a premium loading sweep that replaces the basic pulse. */
+  .animate-shimmer {
+    background: linear-gradient(90deg,
+        hsl(var(--muted)) 25%,
+        hsl(var(--muted-foreground) / 0.06) 50%,
+        hsl(var(--muted)) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+
+    100% {
+      background-position: 400px 0;
+    }
+  }
+
+  /* ════════ Standard Responsive Layout Container & Gutters ════════ */
+  .padding-global,
+  .page-gutter {
+    padding-inline: var(--gutter-mobile);
+  }
+
+  @media (min-width: 640px) {
+
+    .padding-global,
+    .page-gutter {
+      padding-inline: var(--gutter-tablet);
+    }
+  }
+
+  @media (min-width: 1024px) {
+
+    .padding-global,
+    .page-gutter {
+      padding-inline: var(--gutter-desktop);
+    }
+  }
+
+  .site-container,
+  .container-site,
+  .container-webflow,
+  .webflow-container,
+  .container-large {
+    width: 100%;
+    max-width: var(--container-max-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter-mobile);
+  }
+
+  @media (min-width: 640px) {
+
+    .site-container,
+    .container-site,
+    .container-webflow,
+    .webflow-container,
+    .container-large {
+      padding-inline: var(--gutter-tablet);
+    }
+  }
+
+  @media (min-width: 1024px) {
+
+    .site-container,
+    .container-site,
+    .container-webflow,
+    .webflow-container,
+    .container-large {
+      padding-inline: var(--gutter-desktop);
+    }
+  }
+
+  .container-webflow-wide {
+    width: 100%;
+    max-width: 90rem;
+    margin-inline: auto;
+    padding-inline: var(--gutter-mobile);
+  }
+
+  @media (min-width: 640px) {
+    .container-webflow-wide {
+      padding-inline: var(--gutter-tablet);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-webflow-wide {
+      padding-inline: var(--gutter-desktop);
+    }
+  }
+}
+
+@keyframes boojy-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.18;
+    transform: scale(0.97);
+  }
+}
+
+.animate-boojy-blink {
+  animation: boojy-blink 2.2s ease-in-out infinite;
+}
