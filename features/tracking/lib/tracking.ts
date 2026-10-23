@@ -73,8 +73,8 @@ export async function trackOrder(
   orderNumber: string,
   email: string,
 ): Promise<OrderTrackingResult | null> {
-  const trimmedOrder = orderNumber.trim();
-  const trimmedEmail = email.trim();
+  const trimmedOrder = orderNumber.trim().toUpperCase();
+  const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedOrder || !trimmedEmail) return null;
 
   const { data, error } = await client.rpc("track_order", {

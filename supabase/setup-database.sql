@@ -586,8 +586,8 @@ begin
   ) into result
   from public.orders o
   join public.customers c on c.id = o.customer_id
-  where o.order_number = p_order_number
-    and lower(c.email) = lower(p_email);
+  where upper(trim(o.order_number)) = upper(trim(p_order_number))
+    and lower(trim(c.email)) = lower(trim(p_email));
 
   return result;
 end;

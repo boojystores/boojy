@@ -212,29 +212,118 @@ export function CatalogToolbar({
   const minPercent = Math.min(100, Math.max(0, ((currentMin - PRICE_MIN_BOUND) / (PRICE_MAX_BOUND - PRICE_MIN_BOUND)) * 100));
   const maxPercent = Math.min(100, Math.max(0, ((currentMax - PRICE_MIN_BOUND) / (PRICE_MAX_BOUND - PRICE_MIN_BOUND)) * 100));
 
+  const activeFilterChips = (
+    <>
+      {activeCategories.map((c) => (
+        <span
+          key={c.id}
+          className="inline-flex shrink-0 items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none"
+        >
+          <span>Category: {c.name}</span>
+          <button
+            type="button"
+            onClick={() => handleSelectCategory(c.slug)}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={`Remove ${c.name} filter`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+
+      {stock && (
+        <span className="inline-flex shrink-0 items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-none",
+              stock === "in-stock" ? "bg-emerald-500" : "bg-rose-500",
+            )}
+          />
+          <span>{stock === "in-stock" ? "In Stock" : "Out of Stock"}</span>
+          <button
+            type="button"
+            onClick={() => updateParams({ stock: "" })}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Remove stock filter"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      )}
+
+      {(minPrice || maxPrice) && (
+        <span className="inline-flex shrink-0 items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
+          <span>
+            {minPrice && maxPrice
+              ? `₦${Number(minPrice).toLocaleString()} – ₦${Number(maxPrice).toLocaleString()}`
+              : minPrice
+                ? `From ₦${Number(minPrice).toLocaleString()}`
+                : `Up to ₦${Number(maxPrice).toLocaleString()}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setMinDraft("");
+              setMaxDraft("");
+              updateParams({ minPrice: "", maxPrice: "" });
+            }}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Remove price filter"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      )}
+
+      {q && (
+        <span className="inline-flex shrink-0 items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
+          <span>Search: “{q}”</span>
+          <button
+            type="button"
+            onClick={() => updateParams({ q: "" })}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Clear search query"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      )}
+
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={handleResetAll}
+          className="text-xs shrink-0 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Clear all
+        </button>
+      )}
+    </>
+  );
+
   return (
     <>
-      <div className="w-full flex flex-col">
+      <div className="w-full max-w-full flex flex-col overflow-x-hidden">
         {/* Top Split Toolbar Bar spanning edge-to-edge */}
-        <div className="flex w-full items-stretch justify-between min-h-[56px] sm:min-h-[64px]">
+        <div className="flex w-full items-stretch justify-between min-h-[48px] sm:min-h-[64px]">
           {/* Left Section: FILTERS and CATEGORIES */}
-          <div className="flex items-stretch">
+          <div className="flex items-stretch shrink-0">
             {/* FILTERS button: Opens Left Slide-over Sidebar Drawer */}
             <button
               type="button"
               onClick={() => setIsFilterSidebarOpen(true)}
               className={cn(
-                "flex items-center gap-2.5 border-r border-border px-5 py-4 sm:px-8",
+                "flex items-center gap-1.5 sm:gap-2.5 border-r border-border px-3 py-3 sm:px-8 sm:py-4",
                 "text-xs sm:text-sm font-semibold uppercase tracking-wider transition-colors rounded-none",
                 isFilterSidebarOpen || (stock || minPrice || maxPrice)
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
-              <Filter className="h-4 w-4" />
+              <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>FILTERS</span>
               {(stock || minPrice || maxPrice) && (
-                <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center bg-foreground px-1 text-[10px] font-bold text-background rounded-none">
+                <span className="ml-1 sm:ml-1.5 flex h-4 min-w-4 items-center justify-center bg-foreground px-1 text-[10px] font-bold text-background rounded-none">
                   {(stock ? 1 : 0) + (minPrice || maxPrice ? 1 : 0)}
                 </span>
               )}
@@ -245,130 +334,47 @@ export function CatalogToolbar({
               type="button"
               onClick={() => setIsCategoriesDrawerOpen((prev) => !prev)}
               className={cn(
-                "flex items-center gap-2.5 border-r border-border px-5 py-4 sm:px-8",
+                "flex items-center gap-1.5 sm:gap-2.5 border-r border-border px-3 py-3 sm:px-8 sm:py-4",
                 "text-xs sm:text-sm font-semibold uppercase tracking-wider transition-colors rounded-none",
                 isCategoriesDrawerOpen || selectedSlugs.length > 0
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
-              <Layers className="h-4 w-4" />
+              <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>CATEGORIES</span>
               {selectedSlugs.length > 0 && (
-                <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center bg-foreground px-1 text-[10px] font-bold text-background rounded-none">
+                <span className="ml-1 sm:ml-1.5 flex h-4 min-w-4 items-center justify-center bg-foreground px-1 text-[10px] font-bold text-background rounded-none">
                   {selectedSlugs.length}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Middle: Active filter tags (if any) or clean spacer */}
-          <div className="flex flex-1 items-center gap-2 overflow-x-auto px-4 sm:px-6 py-2">
-            {activeCategories.map((c) => (
-              <span
-                key={c.id}
-                className="inline-flex items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none"
-              >
-                <span>Category: {c.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleSelectCategory(c.slug)}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label={`Remove ${c.name} filter`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-
-            {stock && (
-              <span className="inline-flex items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-none",
-                    stock === "in-stock" ? "bg-emerald-500" : "bg-rose-500",
-                  )}
-                />
-                <span>{stock === "in-stock" ? "In Stock" : "Out of Stock"}</span>
-                <button
-                  type="button"
-                  onClick={() => updateParams({ stock: "" })}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Remove stock filter"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-
-            {(minPrice || maxPrice) && (
-              <span className="inline-flex items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
-                <span>
-                  {minPrice && maxPrice
-                    ? `₦${Number(minPrice).toLocaleString()} – ₦${Number(maxPrice).toLocaleString()}`
-                    : minPrice
-                      ? `From ₦${Number(minPrice).toLocaleString()}`
-                      : `Up to ₦${Number(maxPrice).toLocaleString()}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMinDraft("");
-                    setMaxDraft("");
-                    updateParams({ minPrice: "", maxPrice: "" });
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Remove price filter"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-
-            {q && (
-              <span className="inline-flex items-center gap-1.5 border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium rounded-none">
-                <span>Search: “{q}”</span>
-                <button
-                  type="button"
-                  onClick={() => updateParams({ q: "" })}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search query"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleResetAll}
-                className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                Clear all
-              </button>
-            )}
+          {/* Middle: Active filter tags (desktop only) */}
+          <div className="hidden lg:flex flex-1 min-w-0 items-center gap-2 overflow-x-auto px-4 sm:px-6 py-2">
+            {activeFilterChips}
           </div>
 
           {/* Right: Custom UI-Adapted SORT Dropdown */}
-          <div ref={sortDropdownRef} className="relative flex items-center border-l border-border">
+          <div ref={sortDropdownRef} className="relative flex items-center border-l border-border shrink-0">
             <button
               type="button"
               onClick={() => setIsSortDropdownOpen((prev) => !prev)}
               aria-haspopup="listbox"
               aria-expanded={isSortDropdownOpen}
               className={cn(
-                "flex items-center gap-2 px-5 py-4 sm:px-8",
-                "text-xs sm:text-sm font-semibold uppercase tracking-wider transition-colors rounded-none",
+                "flex items-center gap-1.5 sm:gap-2 px-3 py-3 sm:px-8 sm:py-4",
+                "text-xs sm:text-sm font-semibold uppercase tracking-wider transition-colors rounded-none whitespace-nowrap",
                 isSortDropdownOpen
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
-              <span>{currentSortItem.shortLabel}</span>
+              <span className="truncate max-w-[85px] sm:max-w-none">{currentSortItem.shortLabel}</span>
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform duration-200",
+                  "h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200",
                   isSortDropdownOpen && "rotate-180 text-foreground",
                 )}
               />
@@ -420,6 +426,13 @@ export function CatalogToolbar({
             )}
           </div>
         </div>
+
+        {/* Mobile/Tablet active filters row — dedicated horizontal bar */}
+        {hasActiveFilters && (
+          <div className="flex lg:hidden w-full items-center gap-2 overflow-x-auto border-t border-border px-3 py-2 bg-muted/20">
+            {activeFilterChips}
+          </div>
+        )}
 
         {/* Quick CATEGORIES Drawer (Horizontal) */}
         {isCategoriesDrawerOpen && (

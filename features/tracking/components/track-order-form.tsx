@@ -83,12 +83,14 @@ export function TrackOrderForm() {
   }, [result?.orderNumber, email]);
 
   async function handleSubmitDirect(orderNum: string, emailAddr: string) {
+    const normalizedOrder = orderNum.trim().toUpperCase();
+    const normalizedEmail = emailAddr.trim().toLowerCase();
     setLoading(true);
     setError(null);
     setResult(null);
 
     const supabase = createClient();
-    const data = await trackOrder(supabase, orderNum, emailAddr);
+    const data = await trackOrder(supabase, normalizedOrder, normalizedEmail);
 
     if (!data) {
       setError(
@@ -98,7 +100,7 @@ export function TrackOrderForm() {
       );
     } else {
       setResult(data);
-      saveTracking(orderNum, emailAddr);
+      saveTracking(normalizedOrder, normalizedEmail);
     }
 
     setLoading(false);

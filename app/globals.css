@@ -112,7 +112,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden w-full max-w-full;
     letter-spacing: 0.05em;
     word-spacing: 0.35em;
   }

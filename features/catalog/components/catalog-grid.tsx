@@ -165,10 +165,10 @@ function CatalogFrame({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="w-full">
+    <div className="w-full max-w-full overflow-x-hidden">
       {/* Upper header section matching the reference design */}
       <div className="w-full border-b border-border bg-background">
-        <div className="px-6 py-10 sm:px-10 sm:py-14">
+        <div className="px-6 py-8 sm:px-10 sm:py-14">
           <h1 className="font-display text-4xl font-bold tracking-tight text-foreground uppercase sm:text-5xl md:text-6xl">
             Products
           </h1>
@@ -177,7 +177,7 @@ function CatalogFrame({
 
       {/* Split toolbar bar with top/bottom border dividers running edge-to-edge */}
       {toolbar && (
-        <div className="w-full border-b border-border bg-background">
+        <div className="w-full max-w-full border-b border-border bg-background overflow-hidden">
           <CatalogToolbar categories={categories} totalCount={totalCount} />
         </div>
       )}

@@ -17,8 +17,8 @@ export function PromoAdCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-black text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl",
-        "aspect-square sm:aspect-auto sm:min-h-[380px] p-5 sm:p-6",
+        "group relative col-span-2 sm:col-span-1 w-full flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-black text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl",
+        "min-h-[250px] sm:min-h-[380px] p-5 sm:p-6",
         className,
       )}
     >
