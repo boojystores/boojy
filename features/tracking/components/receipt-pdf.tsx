@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import type { PaymentMethod } from "@/features/checkout/lib/checkout";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
@@ -15,21 +15,22 @@ const styles = StyleSheet.create({
     color: "#1a1714",
   },
   header: {
-    marginBottom: 30,
-    borderBottomWidth: 2,
-    borderBottomColor: "#2563eb",
+    marginBottom: 24,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#1a1714",
     borderBottomStyle: "solid",
     paddingBottom: 16,
   },
-  storeName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2563eb",
-    marginBottom: 4,
+  logo: {
+    width: 120,
+    height: 37,
+    marginBottom: 6,
+    objectFit: "contain",
   },
   tagline: {
     fontSize: 9,
     color: "#6b6560",
+    letterSpacing: 0.3,
   },
   section: {
     marginBottom: 20,
@@ -131,6 +132,7 @@ export type ReceiptData = {
   customerName: string;
   createdAt?: string;
   items: { name: string; quantity: number; unitPrice: number }[];
+  logoUrl?: string;
 };
 
 const priceFmt = (n: number) =>
@@ -154,14 +156,21 @@ const dateFmt = (iso?: string) => {
 };
 
 export function ReceiptDocument({ data }: { data: ReceiptData }) {
+  const logoSrc =
+    data.logoUrl ||
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/boojy-dark.png`
+      : "/boojy-dark.png");
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.storeName}>Boojy</Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image component for PDF document */}
+          <Image src={logoSrc} style={styles.logo} />
           <Text style={styles.tagline}>
-            Curious objects for mind and desk
+            ... the limitless lifestyle
           </Text>
         </View>
 

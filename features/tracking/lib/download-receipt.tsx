@@ -10,7 +10,24 @@ import { ReceiptDocument, type ReceiptData } from "@/features/tracking/component
  */
 export async function downloadReceipt(data: ReceiptData): Promise<void> {
   try {
-    const blob = await pdf(<ReceiptDocument data={data} />).toBlob();
+    let logoUrl = data.logoUrl;
+    if (!logoUrl && typeof window !== "undefined") {
+      try {
+        const resp = await fetch("/boojy-dark.png");
+        if (resp.ok) {
+          const blob = await resp.blob();
+          logoUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch {
+        logoUrl = `${window.location.origin}/boojy-dark.png`;
+      }
+    }
+
+    const blob = await pdf(<ReceiptDocument data={{ ...data, logoUrl }} />).toBlob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
