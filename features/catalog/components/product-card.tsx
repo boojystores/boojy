@@ -90,7 +90,7 @@ export function ProductCard({
                 ? "bg-emerald-600 text-white"
                 : outOfStock
                   ? "cursor-not-allowed bg-muted text-muted-foreground"
-                  : "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+                  : "bg-black text-white shadow-sm hover:bg-neutral-800"
             }`}
           >
             {justAdded ? (

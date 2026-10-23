@@ -248,7 +248,7 @@ function CatalogPagination({
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "inline-flex h-9 w-9 items-center justify-center bg-primary text-sm font-semibold text-primary-foreground"
+                ? "inline-flex h-9 w-9 items-center justify-center bg-black text-sm font-semibold text-white"
                 : "inline-flex h-9 w-9 items-center justify-center text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             }
           >

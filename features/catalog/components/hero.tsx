@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BoojyLogo } from "@/components/boojy-logo";
 import { cn } from "@/lib/utils";
 
 const SLIDES = [
@@ -50,7 +49,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative overflow-hidden flex flex-col justify-center h-[85vh] min-h-[85vh] md:h-[calc(100vh-5rem)] md:min-h-[calc(100vh-5rem)]">
+    <section className="relative overflow-hidden flex flex-col justify-end h-[85vh] min-h-[85vh] md:h-[calc(100vh-5rem)] md:min-h-[calc(100vh-5rem)]">
       {/* Rotating background slides */}
       <div className="absolute inset-0 -z-30">
         {SLIDES.map((slide, index) => (
@@ -71,8 +70,8 @@ export function Hero() {
         ))}
       </div>
 
-      {/* Gradient overlay — adapts to theme */}
-      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-background/70 via-background/40 to-background/20 dark:from-background/80 dark:via-background/60 dark:to-background/40" />
+      {/* Gradient overlay — adapts to theme, darker at bottom for text legibility */}
+      <div className="absolute inset-0 -z-20 bg-gradient-to-t from-background via-background/70 to-background/20 dark:from-background dark:via-background/70 dark:to-transparent" />
 
       {/* Faint lattice — background accent */}
       <div
@@ -80,15 +79,14 @@ export function Hero() {
         className="bg-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
       />
 
-      <div className="site-container relative z-10 flex flex-col items-center justify-center gap-5 sm:gap-6 py-6 sm:py-10 text-center my-auto">
-        <BoojyLogo className="h-10 w-auto sm:h-12 md:h-14 drop-shadow-md" priority />
-
-        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-3xl">
-          Every fit, a{" "}
+      {/* Write-ups & CTA anchored at bottom */}
+      <div className="site-container relative z-10 flex flex-col items-center justify-end gap-3 sm:gap-4 pb-12 sm:pb-14 text-center mt-auto">
+        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-4xl">
+          ...the{" "}
           <span className="bg-gradient-to-br from-primary to-purple-600 bg-clip-text text-transparent">
-            statement
-          </span>
-          .
+            limitless
+          </span>{" "}
+          lifestyle
         </h1>
 
         <p className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-foreground/80">
@@ -96,7 +94,7 @@ export function Hero() {
           designed for effortless expression.
         </p>
 
-        <div className="flex w-full justify-center sm:w-auto pt-2">
+        <div className="flex w-full justify-center sm:w-auto pt-1">
           <Button asChild size="lg" className="w-full sm:w-auto px-8 h-12 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-md">
             <Link href="/products">Explore Collection</Link>
           </Button>
@@ -104,7 +102,7 @@ export function Hero() {
       </div>
 
       {/* Slide indicators */}
-      <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
+      <div className="absolute bottom-3 sm:bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
         {SLIDES.map((_, index) => (
           <button
             key={index}

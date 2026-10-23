@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Download, Package, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackOrder, type OrderTrackingResult, ORDER_STATUS_LABELS } from "@/features/tracking/lib/tracking";
@@ -11,43 +11,13 @@ import { Input } from "@/components/ui/input";
 
 import { priceFormatter } from "@/lib/currency";
 
-const STORAGE_KEY = "boojy-tracking";
-
-function loadSaved(): { orderNumber: string; email: string } | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as { orderNumber: string; email: string };
-  } catch {
-    return null;
-  }
-}
-
-function saveTracking(orderNumber: string, email: string) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ orderNumber, email }));
-  } catch {
-    // localStorage might be full or unavailable
-  }
-}
-
 export function TrackOrderForm() {
-  const saved = useRef(loadSaved());
-  const [orderNumber, setOrderNumber] = useState(saved.current?.orderNumber ?? "");
-  const [email, setEmail] = useState(saved.current?.email ?? "");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<OrderTrackingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updated, setUpdated] = useState(false);
-
-  // Auto-submit if we have saved credentials
-  useEffect(() => {
-    if (saved.current?.orderNumber && saved.current?.email && !result && !loading) {
-      // Trigger submit on mount with saved values
-      handleSubmitDirect(saved.current.orderNumber, saved.current.email);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Realtime subscription: re-fetch when order status changes
   useEffect(() => {
@@ -100,7 +70,6 @@ export function TrackOrderForm() {
       );
     } else {
       setResult(data);
-      saveTracking(normalizedOrder, normalizedEmail);
     }
 
     setLoading(false);
@@ -138,14 +107,14 @@ export function TrackOrderForm() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
             <Input
               type="text"
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value)}
               placeholder="Order number (e.g., ORD-20260810-0001)"
               aria-label="Order number"
-              className="pl-9"
+              className="pl-9 placeholder:opacity-40"
             />
           </div>
           <Input
@@ -154,6 +123,7 @@ export function TrackOrderForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email used at checkout"
             aria-label="Email address"
+            className="placeholder:opacity-40"
           />
         </div>
         <Button

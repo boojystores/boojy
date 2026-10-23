@@ -36,7 +36,7 @@
     --card-foreground: 20 15% 12%;
     --popover: 40 20% 99%;
     --popover-foreground: 20 15% 12%;
-    --primary: 221 83% 53%;
+    --primary: 0 0% 9%;
     --primary-foreground: 0 0% 100%;
     --secondary: 35 20% 91%;
     --secondary-foreground: 20 12% 18%;
@@ -48,7 +48,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 35 18% 86%;
     --input: 35 18% 84%;
-    --ring: 221 83% 53%;
+    --ring: 0 0% 9%;
     /* Sticker palette — the store's signature accent set. */
     --sticker-blue: 221 83% 53%;
     --sticker-amber: 38 92% 50%;
@@ -77,8 +77,8 @@
     --card-foreground: 30 15% 94%;
     --popover: 230 25% 8%;
     --popover-foreground: 30 15% 94%;
-    --primary: 218 92% 63%;
-    --primary-foreground: 230 30% 5%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
     --secondary: 230 20% 12%;
     --secondary-foreground: 30 15% 94%;
     --muted: 230 20% 12%;
@@ -89,7 +89,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 230 15% 15%;
     --input: 230 15% 17%;
-    --ring: 218 92% 63%;
+    --ring: 0 0% 98%;
     --chart-1: 218 92% 63%;
     --chart-2: 38 95% 58%;
     --chart-3: 152 65% 45%;

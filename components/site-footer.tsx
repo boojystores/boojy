@@ -119,7 +119,7 @@ export function SiteFooter() {
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 text-xs text-muted-foreground sm:flex-row">
           <p>&copy; 2026 Boojy. All rights reserved.</p>
           <p className="font-display text-[11px] tracking-wide">
-            Every fit, a statement.
+            ...the limitless lifestyle
           </p>
         </div>
       </div>
