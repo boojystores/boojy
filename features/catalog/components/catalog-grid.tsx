@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
@@ -10,6 +11,8 @@ import {
   type ProductsSearchParams,
 } from "@/features/catalog/lib/catalog";
 import { ProductCard } from "@/features/catalog/components/product-card";
+import { PromoAdCard } from "@/features/catalog/components/promo-ad-card";
+import { getPromoConfig } from "@/features/admin/actions/promotions";
 import { CatalogToolbar } from "@/features/catalog/components/catalog-toolbar";
 
 const PAGE_SIZE = 12;
@@ -104,6 +107,7 @@ export async function CatalogGrid({
       })
     : result;
   const { products, totalPages } = effectiveResult;
+  const promoConfig = await getPromoConfig();
 
   return (
     <CatalogFrame
@@ -122,9 +126,17 @@ export async function CatalogGrid({
       {products.length > 0 && (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} categories={categories} />
+            {products.map((product, idx) => (
+              <Fragment key={product.id}>
+                {promoConfig.enabled && idx === promoConfig.gridPosition && (
+                  <PromoAdCard config={promoConfig} />
+                )}
+                <ProductCard product={product} categories={categories} />
+              </Fragment>
             ))}
+            {promoConfig.enabled && products.length > 0 && products.length <= promoConfig.gridPosition && (
+              <PromoAdCard config={promoConfig} />
+            )}
           </div>
           {totalPages > 1 && (
             <CatalogPagination

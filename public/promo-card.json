@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "title": "BLACK FRIDAY",
+  "badge": "LIMITED EVENT",
+  "description": "Up to 50% off select streetwear, joggers, and signature pieces.",
+  "buttonText": "ENTER NOW",
+  "buttonLink": "/products",
+  "gridPosition": 3,
+  "theme": "black",
+  "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&fit=crop"
+}

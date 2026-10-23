@@ -50,7 +50,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative overflow-hidden flex flex-col justify-center h-[85vh] min-h-[85vh] md:h-[calc(100vh-5rem)] md:min-h-[calc(100vh-5rem)]">
       {/* Rotating background slides */}
       <div className="absolute inset-0 -z-30">
         {SLIDES.map((slide, index) => (
@@ -74,16 +74,16 @@ export function Hero() {
       {/* Gradient overlay — adapts to theme */}
       <div className="absolute inset-0 -z-20 bg-gradient-to-br from-background/70 via-background/40 to-background/20 dark:from-background/80 dark:via-background/60 dark:to-background/40" />
 
-      {/* Faint lattice — the cube's face grid, faded toward the edges. */}
+      {/* Faint lattice — background accent */}
       <div
         aria-hidden
         className="bg-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
       />
 
-      <div className="site-container flex flex-col items-center gap-6 py-12 text-center sm:py-20">
-        <BoojyLogo className="h-10 w-auto sm:h-12 drop-shadow-md" priority />
+      <div className="site-container relative z-10 flex flex-col items-center justify-center gap-5 sm:gap-6 py-6 sm:py-10 text-center my-auto">
+        <BoojyLogo className="h-10 w-auto sm:h-12 md:h-14 drop-shadow-md" priority />
 
-        <h1 className="font-display text-4xl font-bold tracking-tight sm:text-6xl">
+        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-3xl">
           Every fit, a{" "}
           <span className="bg-gradient-to-br from-primary to-purple-600 bg-clip-text text-transparent">
             statement
@@ -91,14 +91,14 @@ export function Hero() {
           .
         </h1>
 
-        <p className="max-w-xl text-lg leading-relaxed text-foreground/70">
+        <p className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-foreground/80">
           Curated streetwear, premium joggers, bespoke hoodies, and timeless essentials —
           designed for effortless expression.
         </p>
 
-        <div className="flex w-full justify-center sm:w-auto">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/products">Shop the collection</Link>
+        <div className="flex w-full justify-center sm:w-auto pt-2">
+          <Button asChild size="lg" className="w-full sm:w-auto px-8 h-12 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-md">
+            <Link href="/products">Explore Collection</Link>
           </Button>
         </div>
       </div>

@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
 import { getFeaturedCategories, getFeaturedProducts } from "@/features/catalog/lib/catalog";
 import { ProductCard } from "@/features/catalog/components/product-card";
+import { PromoAdCard } from "@/features/catalog/components/promo-ad-card";
+import { getPromoConfig } from "@/features/admin/actions/promotions";
 
 export async function FeaturedCatalog() {
   if (!hasEnvVars) {
@@ -10,9 +13,10 @@ export async function FeaturedCatalog() {
   }
 
   const supabase = await createClient();
-  const [categories, products] = await Promise.all([
+  const [categories, products, promoConfig] = await Promise.all([
     getFeaturedCategories(supabase),
     getFeaturedProducts(supabase),
+    getPromoConfig(),
   ]);
 
   if (products.length === 0) {
@@ -58,9 +62,17 @@ export async function FeaturedCatalog() {
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} categories={categories} />
+          {products.map((product, idx) => (
+            <Fragment key={product.id}>
+              {promoConfig.enabled && idx === promoConfig.gridPosition && (
+                <PromoAdCard config={promoConfig} />
+              )}
+              <ProductCard product={product} categories={categories} />
+            </Fragment>
           ))}
+          {promoConfig.enabled && products.length > 0 && products.length <= promoConfig.gridPosition && (
+            <PromoAdCard config={promoConfig} />
+          )}
         </div>
       </section>
     </div>
