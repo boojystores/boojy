@@ -16,7 +16,7 @@ All 11 feature tickets are implemented and resolved, with **143/143 unit tests**
 - Product catalog with **live search**, category filter, price sorting, and pagination — state preserved in the URL
 - Product details with image, stock-availability badge, **quantity selector capped at stock**, and related products
 - Cart powered by **Zustand + `localStorage`** (persists between visits), quantity updates capped at stock
-- Guest checkout: name / email / contact / address / notes, record-only payment method (COD / e-wallet / bank transfer)
+- Guest checkout: name / email / contact / address / notes, record-only payment method (e-wallet / bank transfer)
 - **Atomic order placement** — per-day `ORD-YYYYMMDD-XXXX` order numbers, price snapshots, immediate stock deduction, per-item stock rejection, confirmation modal with order summary
 
 **Admin (role-gated at `/admin`)**

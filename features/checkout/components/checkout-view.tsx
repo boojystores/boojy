@@ -27,7 +27,6 @@ import { priceFormatter } from "@/lib/currency";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
-  { value: "cod", label: "Cash on delivery", hint: "Pay in cash when your order arrives." },
   { value: "ewallet", label: "Instant Transfer / E-wallet", hint: "Bank transfer, OPay, PalmPay, or card." },
   { value: "bank_transfer", label: "Direct Bank Transfer", hint: "Transfer directly to store account — details by email." },
 ];
@@ -47,7 +46,7 @@ const EMPTY_FORM: FormFields = {
   contactNumber: "",
   deliveryAddress: "",
   notes: "",
-  paymentMethod: "cod",
+  paymentMethod: "ewallet",
 };
 
 export function CheckoutView() {
@@ -279,7 +278,7 @@ export function CheckoutView() {
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Recorded only — no payment is taken on this site.
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Payment method">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
                 {PAYMENT_OPTIONS.map((option) => {
                   const active = fields.paymentMethod === option.value;
                   return (

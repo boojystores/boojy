@@ -18,7 +18,7 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const PAYMENT_METHODS: PaymentMethod[] = ["cod", "ewallet", "bank_transfer"];
+const PAYMENT_METHODS: PaymentMethod[] = ["ewallet", "bank_transfer"];
 
 export type CheckoutActionResponse = PlaceOrderResult;
 
