@@ -37,10 +37,14 @@ export type TrackingItem = {
 };
 
 export type OrderTrackingResult = {
+  id?: string;
   orderNumber: string;
   status: OrderStatus;
   totalAmount: number;
   paymentMethod: PaymentMethod;
+  paymentProvider?: string;
+  paymentStatus?: string;
+  paidAt?: string | null;
   deliveryAddress: string;
   createdAt: string;
   customerName: string;
@@ -48,10 +52,14 @@ export type OrderTrackingResult = {
 };
 
 type TrackOrderRow = {
+  id?: string;
   order_number: string;
   status: string;
   total_amount: number;
   payment_method: string;
+  payment_provider?: string | null;
+  payment_status?: string | null;
+  paid_at?: string | null;
   delivery_address: string;
   created_at: string;
   customer_name: string;
@@ -88,10 +96,14 @@ export async function trackOrder(
   if (!row || !row.order_number) return null;
 
   return {
+    id: row.id,
     orderNumber: row.order_number,
     status: row.status as OrderStatus,
     totalAmount: Number(row.total_amount),
     paymentMethod: row.payment_method as PaymentMethod,
+    paymentProvider: row.payment_provider || undefined,
+    paymentStatus: row.payment_status || undefined,
+    paidAt: row.paid_at,
     deliveryAddress: row.delivery_address,
     createdAt: row.created_at,
     customerName: row.customer_name,

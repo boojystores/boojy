@@ -171,6 +171,17 @@
   html .width-before-scroll-bar {
     margin-right: 0 !important;
   }
+
+  /* Form opacity — reduces brightness across all forms down to 10% opacity */
+  form section,
+  form .form-card,
+  section:has(form),
+  form fieldset,
+  .form-container {
+    background-color: hsl(var(--card) / 0.1) !important;
+    border-color: hsl(var(--border) / 0.5) !important;
+    backdrop-filter: blur(8px);
+  }
 }
 
 @layer utilities {

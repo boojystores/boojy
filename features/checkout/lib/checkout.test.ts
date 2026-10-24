@@ -371,5 +371,25 @@ describe("placeOrder (ticket 06)", () => {
     expect(result.message).toBe("Simulated failure");
     expect(mock.db.orders).toHaveLength(0);
   });
+
+  it("places an order with bachs payment method", async () => {
+    const mock = makeMock();
+    const bachsDetails: CheckoutDetails = {
+      ...details,
+      paymentMethod: "bachs",
+    };
+
+    const result = await placeOrder(
+      toClient(mock),
+      bachsDetails,
+      lines({ productId: "p1", quantity: 2 }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.orderNumber).toBe("ORD-20260807-0001");
+    expect(result.totalAmount).toBe(25.98);
+    expect(mock.db.orders[0].payment_method).toBe("bachs");
+  });
 });
 

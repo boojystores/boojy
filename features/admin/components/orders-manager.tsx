@@ -347,7 +347,21 @@ export function OrdersManager({
                       {priceFormatter.format(order.totalAmount)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+                      <div className="text-xs text-foreground font-medium">
+                        {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-block text-[10px] font-semibold uppercase tracking-wider",
+                          order.paymentStatus === "paid"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : order.paymentStatus === "failed"
+                              ? "text-destructive"
+                              : "text-amber-600 dark:text-amber-400",
+                        )}
+                      >
+                        ● {order.paymentStatus || "pending"}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <OrderStatusBadge status={order.status} />

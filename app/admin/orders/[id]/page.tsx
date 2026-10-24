@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: "Order details and fulfillment actions.",
 };
 import { priceFormatter } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "full",
@@ -110,18 +111,79 @@ export default async function AdminOrderDetailPage({
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="whitespace-pre-line">{order.deliveryAddress}</span>
             </p>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Payment:{" "}
-              <span className="font-medium text-foreground">
-                {PAYMENT_METHOD_LABELS[order.paymentMethod]}
-              </span>
-            </p>
             {order.notes && (
               <p className="mt-4 flex items-start gap-2 text-sm text-muted-foreground">
                 <StickyNote className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="whitespace-pre-line">{order.notes}</span>
               </p>
             )}
+          </section>
+
+          <section className="rounded-xl border border-border bg-background p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Payment Details
+              </h2>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider",
+                  order.paymentStatus === "paid"
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : order.paymentStatus === "failed"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                )}
+              >
+                {order.paymentStatus || "Pending"}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground">Method:</span>
+                <span className="font-medium text-foreground">
+                  {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
+                </span>
+              </div>
+              {order.paymentProvider && (
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Gateway:</span>
+                  <span className="font-medium text-foreground capitalize">
+                    {order.paymentProvider}
+                  </span>
+                </div>
+              )}
+              {order.bachsChargeId && (
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Charge ID:</span>
+                  <span className="font-mono text-xs text-foreground">
+                    {order.bachsChargeId}
+                  </span>
+                </div>
+              )}
+              {order.bachsCheckoutId && (
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Checkout ID:</span>
+                  <span className="font-mono text-xs text-foreground">
+                    {order.bachsCheckoutId}
+                  </span>
+                </div>
+              )}
+              {order.paymentReference && (
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Reference:</span>
+                  <span className="font-mono text-xs text-foreground">
+                    {order.paymentReference}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between py-1">
+                <span className="text-muted-foreground">Paid At:</span>
+                <span className="text-xs text-foreground">
+                  {order.paidAt ? dateFormatter.format(new Date(order.paidAt)) : "Unconfirmed / Pending"}
+                </span>
+              </div>
+            </div>
           </section>
         </div>
 

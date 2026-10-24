@@ -137,7 +137,7 @@ export function TrackOrderForm() {
 
       {/* Error */}
       {error && (
-        <div className="mt-6 rounded-xl border border-border bg-card p-6">
+        <div className="mt-6 rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-6">
           <div className="flex items-start gap-3">
             <Package className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -159,7 +159,7 @@ export function TrackOrderForm() {
           )}
 
           {/* Status Bar */}
-          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+          <div className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-6">
             <h2 className="mb-1 font-display text-lg font-bold tracking-tight">
               {result.orderNumber}
             </h2>
@@ -173,7 +173,7 @@ export function TrackOrderForm() {
           </div>
 
           {/* Order Summary */}
-          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+          <div className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-6">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Order summary
             </h3>
@@ -213,11 +213,23 @@ export function TrackOrderForm() {
               ))}
             </ul>
 
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-4 text-sm font-semibold sm:text-base">
-              <span>Total</span>
-              <span className="tabular-nums">
-                {priceFormatter.format(result.totalAmount)}
-              </span>
+            <div className="mt-4 border-t border-border pt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Payment</span>
+                <span className="font-medium text-foreground">
+                  {result.paymentStatus === "paid"
+                    ? "Paid (Bachs.io)"
+                    : result.paymentStatus === "failed"
+                      ? "Payment Failed"
+                      : "Pending Confirmation"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm font-semibold sm:text-base">
+                <span>Total</span>
+                <span className="tabular-nums">
+                  {priceFormatter.format(result.totalAmount)}
+                </span>
+              </div>
             </div>
 
             <Button

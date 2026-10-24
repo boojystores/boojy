@@ -45,6 +45,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   ewallet: "E-wallet",
   bank_transfer: "Bank transfer",
+  bachs: "Bachs.io (Online)",
 };
 
 export const LIFECYCLE: Exclude<OrderStatus, "cancelled">[] = [
@@ -113,13 +114,19 @@ export type OrderListItem = {
   customerName: string;
   customerEmail: string;
   paymentMethod: PaymentMethod;
+  paymentStatus?: string;
+  paymentProvider?: string;
+  paymentReference?: string | null;
+  bachsCheckoutId?: string | null;
+  bachsChargeId?: string | null;
+  paidAt?: string | null;
 };
 
 export const ORDER_SUMMARY_COLUMNS =
-  "id, order_number, status, total_amount, payment_method, created_at, customer_name, customer_email, items_count";
+  "id, order_number, status, total_amount, payment_method, payment_status, payment_provider, payment_reference, bachs_checkout_id, bachs_charge_id, paid_at, created_at, customer_name, customer_email, items_count";
 
 export const ORDER_DETAIL_COLUMNS =
-  "id, order_number, status, total_amount, notes, created_at, delivery_address, payment_method, customer_name, customer_email, customer_contact_number, items";
+  "id, order_number, status, total_amount, notes, created_at, delivery_address, payment_method, payment_status, payment_provider, payment_reference, bachs_checkout_id, bachs_charge_id, paid_at, payment_metadata, customer_name, customer_email, customer_contact_number, items";
 
 /** Columns of the `order_summaries` view (ADR-0012). */
 type OrderSummaryRow = {
@@ -128,6 +135,12 @@ type OrderSummaryRow = {
   status: string;
   total_amount: number;
   payment_method: string;
+  payment_status?: string | null;
+  payment_provider?: string | null;
+  payment_reference?: string | null;
+  bachs_checkout_id?: string | null;
+  bachs_charge_id?: string | null;
+  paid_at?: string | null;
   created_at: string;
   customer_name: string | null;
   customer_email: string | null;
@@ -175,6 +188,12 @@ export async function listOrders(
     customerName: row.customer_name ?? "Unknown customer",
     customerEmail: row.customer_email ?? "",
     paymentMethod: row.payment_method as PaymentMethod,
+    paymentStatus: row.payment_status || "pending",
+    paymentProvider: row.payment_provider || undefined,
+    paymentReference: row.payment_reference,
+    bachsCheckoutId: row.bachs_checkout_id,
+    bachsChargeId: row.bachs_charge_id,
+    paidAt: row.paid_at,
   }));
 }
 
@@ -199,6 +218,13 @@ export type OrderDetail = {
   customer: { fullName: string; email: string; contactNumber: string };
   deliveryAddress: string;
   paymentMethod: PaymentMethod;
+  paymentStatus?: string;
+  paymentProvider?: string;
+  paymentReference?: string | null;
+  bachsCheckoutId?: string | null;
+  bachsChargeId?: string | null;
+  paidAt?: string | null;
+  paymentMetadata?: Record<string, unknown> | null;
   items: OrderItemDetail[];
 };
 
@@ -212,6 +238,13 @@ type OrderDetailRow = {
   created_at: string;
   delivery_address: string;
   payment_method: string;
+  payment_status?: string | null;
+  payment_provider?: string | null;
+  payment_reference?: string | null;
+  bachs_checkout_id?: string | null;
+  bachs_charge_id?: string | null;
+  paid_at?: string | null;
+  payment_metadata?: Record<string, unknown> | null;
   customer_name: string;
   customer_email: string;
   customer_contact_number: string;
@@ -256,6 +289,13 @@ export async function getOrderDetail(
     },
     deliveryAddress: row.delivery_address,
     paymentMethod: row.payment_method as PaymentMethod,
+    paymentStatus: row.payment_status || "pending",
+    paymentProvider: row.payment_provider || undefined,
+    paymentReference: row.payment_reference,
+    bachsCheckoutId: row.bachs_checkout_id,
+    bachsChargeId: row.bachs_charge_id,
+    paidAt: row.paid_at,
+    paymentMetadata: row.payment_metadata,
     items: row.items.map((item) => ({
       id: item.id,
       productId: item.product_id,

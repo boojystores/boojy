@@ -15,7 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * simulation of the function's behaviour (see checkout.test.ts).
  */
 
-export type PaymentMethod = "cod" | "ewallet" | "bank_transfer";
+export type PaymentMethod = "cod" | "ewallet" | "bank_transfer" | "bachs";
 
 export type CheckoutDetails = {
   fullName: string;
@@ -46,6 +46,7 @@ export type PlaceOrderResult =
       orderId: string;
       orderNumber: string;
       totalAmount: number;
+      checkoutUrl?: string;
     }
   | {
       ok: false;

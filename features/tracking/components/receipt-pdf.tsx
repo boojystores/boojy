@@ -5,6 +5,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   ewallet: "E-wallet",
   bank_transfer: "Bank transfer",
+  bachs: "Bachs.io",
 };
 
 const styles = StyleSheet.create({

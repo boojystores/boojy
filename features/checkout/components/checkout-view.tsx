@@ -27,6 +27,7 @@ import { priceFormatter } from "@/lib/currency";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
+  { value: "bachs", label: "Cards & Bank Transfer (Bachs.io)", hint: "Pay securely with Debit Card or Bank Transfer via Bachs." },
   { value: "ewallet", label: "Instant Transfer / E-wallet", hint: "Bank transfer, OPay, PalmPay, or card." },
   { value: "bank_transfer", label: "Direct Bank Transfer", hint: "Transfer directly to store account — details by email." },
 ];
@@ -46,7 +47,7 @@ const EMPTY_FORM: FormFields = {
   contactNumber: "",
   deliveryAddress: "",
   notes: "",
-  paymentMethod: "ewallet",
+  paymentMethod: "bachs",
 };
 
 export function CheckoutView() {
@@ -122,6 +123,12 @@ export function CheckoutView() {
       });
 
       if (response.ok) {
+        if (response.checkoutUrl) {
+          clearCart(); // Cart is converted to an active checkout session
+          window.location.href = response.checkoutUrl;
+          return;
+        }
+
         // Copy the array (NOT `{ ...items }` — that yields an object of
         // numeric keys). The snapshot is shown in the confirmation modal
         // after the cart is cleared.
@@ -181,7 +188,7 @@ export function CheckoutView() {
         <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
           {/* Left: guest details form */}
           <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-6">
-            <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Your details
               </h2>
@@ -228,7 +235,7 @@ export function CheckoutView() {
                     name="contactNumber"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+234 902 2272 437"
+                    placeholder="+234 000 0000 000"
                     value={fields.contactNumber}
                     onChange={(e) => set("contactNumber")(e.target.value)}
                     aria-invalid={Boolean(fieldErrors.contactNumber)}
@@ -249,7 +256,7 @@ export function CheckoutView() {
                     value={fields.deliveryAddress}
                     onChange={(e) => set("deliveryAddress")(e.target.value)}
                     aria-invalid={Boolean(fieldErrors.deliveryAddress)}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                    className="flex w-full rounded-md border border-input/60 bg-card/10 px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                   />
                 </Field>
                 <Field
@@ -264,13 +271,13 @@ export function CheckoutView() {
                     placeholder="Delivery instructions, landmark, gate code…"
                     value={fields.notes}
                     onChange={(e) => set("notes")(e.target.value)}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                    className="flex w-full rounded-md border border-input/60 bg-card/10 px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                   />
                 </Field>
               </div>
             </section>
 
-            <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Payment method
               </h2>
@@ -288,7 +295,7 @@ export function CheckoutView() {
                         "flex cursor-pointer flex-col gap-1 rounded-lg border p-2.5 transition-colors sm:p-3",
                         active
                           ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40",
+                          : "border-border/50 bg-card/10 hover:border-primary/40",
                       )}
                     >
                       <span className="flex items-center gap-2 text-sm font-medium">
@@ -373,7 +380,7 @@ export function CheckoutView() {
           </form>
 
           {/* Right: order summary */}
-          <aside className="h-fit min-w-0 overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5 lg:sticky lg:top-24">
+          <aside className="h-fit min-w-0 overflow-hidden rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5 lg:sticky lg:top-24">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Order summary
             </h2>
