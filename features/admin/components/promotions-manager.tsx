@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PromoAdCard } from "@/features/catalog/components/promo-ad-card";
-import { savePromoConfig } from "@/features/admin/actions/promotions";
+import {
+  savePromoConfig,
+  uploadPromoBannerAction,
+} from "@/features/admin/actions/promotions";
 import type { PromoCardConfig } from "@/features/catalog/lib/promo-card";
 
 const PRESET_IMAGES = [
@@ -36,7 +39,31 @@ export function PromotionsManager({
   const [config, setConfig] = useState<PromoCardConfig>(initialConfig);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const data = new FormData();
+      data.set("file", file);
+      const res = await uploadPromoBannerAction(data);
+      if (res.ok) {
+        setConfig((c) => ({ ...c, imageUrl: res.url }));
+      } else {
+        setError(res.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -197,17 +224,40 @@ export function PromotionsManager({
               </p>
             </div>
 
-            {/* Background Image URL & Presets */}
+            {/* Background Image URL, File Upload & Presets */}
             <div className="space-y-3">
-              <Label htmlFor="promo-img-url">Background Image URL</Label>
-              <Input
-                id="promo-img-url"
-                value={config.imageUrl}
-                onChange={(e) =>
-                  setConfig((c) => ({ ...c, imageUrl: e.target.value }))
-                }
-                placeholder="https://..."
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="promo-img-url">Background Image</Label>
+                {uploadingImage && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Uploading to Cloudinary…
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  id="promo-img-url"
+                  value={config.imageUrl}
+                  onChange={(e) =>
+                    setConfig((c) => ({ ...c, imageUrl: e.target.value }))
+                  }
+                  placeholder="https://... or upload photo"
+                  className="flex-1"
+                />
+                <label className="inline-flex cursor-pointer items-center justify-center border border-input bg-background px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-accent shrink-0">
+                  <span>{uploadingImage ? "Uploading…" : "Upload Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingImage}
+                    onChange={handleBannerUpload}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">
                   Or select a curated luxury preset:

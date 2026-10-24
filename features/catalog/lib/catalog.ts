@@ -15,6 +15,7 @@ export type Product = {
   price: number;
   stock_quantity: number;
   image_url: string;
+  images?: string[];
   status: ProductStatus;
   category_id: string | null;
   category_ids?: string[];
@@ -22,6 +23,44 @@ export type Product = {
 
 export const PRODUCT_COLUMNS =
   "id, name, description, price, stock_quantity, image_url, status, category_id";
+
+/**
+ * Extract all image URLs for a product:
+ * 1. Explicit `images` array if present and populated
+ * 2. Embedded metadata tags in description: <!--images:[...]-->
+ * 3. Primary `image_url`
+ */
+export function extractProductImages(product: {
+  image_url?: string | null;
+  images?: string[] | null;
+  description?: string | null;
+}): string[] {
+  const list: string[] = [];
+  if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+    for (const url of product.images) {
+      if (typeof url === "string" && url.trim()) list.push(url.trim());
+    }
+  } else if (product.description) {
+    const match = product.description.match(/<!--images:(\[.*?\])-->/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          for (const url of parsed) {
+            if (typeof url === "string" && url.trim()) list.push(url.trim());
+          }
+        }
+      } catch {}
+    }
+  }
+
+  const primary = product.image_url?.trim();
+  if (primary) {
+    const filtered = list.filter((img) => img !== primary);
+    return [primary, ...filtered];
+  }
+  return list;
+}
 
 /**
  * Extract all assigned category IDs for a product:
@@ -52,11 +91,47 @@ export function extractProductCategories(product: {
 }
 
 /**
- * Remove category metadata tags from description for clean display.
+ * Remove category and images metadata tags from description for clean display.
  */
 export function cleanProductDescription(description: string | null | undefined): string {
   if (!description) return "";
-  return description.replace(/\s*<!--categories:\[.*?\]-->/g, "").trim();
+  return description
+    .replace(/\s*<!--categories:\[.*?\]-->/g, "")
+    .replace(/\s*<!--images:\[.*?\]-->/g, "")
+    .trim();
+}
+
+/**
+ * Encode multiple categories and/or images into product description metadata.
+ */
+export function encodeProductMetadata(
+  description: string | null | undefined,
+  options: {
+    categoryIds?: string[];
+    images?: string[];
+  } = {},
+): string | null {
+  const base = cleanProductDescription(description);
+  const tags: string[] = [];
+
+  if (options.categoryIds) {
+    const unique = Array.from(new Set(options.categoryIds.filter(Boolean)));
+    if (unique.length > 1) {
+      tags.push(`<!--categories:${JSON.stringify(unique)}-->`);
+    }
+  }
+
+  if (options.images) {
+    const uniqueImgs = Array.from(new Set(options.images.map((s) => s.trim()).filter(Boolean)));
+    if (uniqueImgs.length > 1) {
+      tags.push(`<!--images:${JSON.stringify(uniqueImgs)}-->`);
+    }
+  }
+
+  if (tags.length === 0) {
+    return base || null;
+  }
+  return base ? `${base}\n\n${tags.join("\n")}` : tags.join("\n");
 }
 
 /**
@@ -66,13 +141,7 @@ export function encodeDescriptionCategories(
   description: string | null | undefined,
   categoryIds: string[],
 ): string | null {
-  const base = cleanProductDescription(description);
-  const unique = Array.from(new Set(categoryIds.filter(Boolean)));
-  if (unique.length <= 1) {
-    return base || null;
-  }
-  const tag = `<!--categories:${JSON.stringify(unique)}-->`;
-  return base ? `${base}\n\n${tag}` : tag;
+  return encodeProductMetadata(description, { categoryIds });
 }
 
 export type CatalogSort =
@@ -272,6 +341,7 @@ export async function searchCatalog(
     ...p,
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
+    images: extractProductImages(p),
   }));
   const total = count ?? products.length;
 
@@ -306,6 +376,7 @@ export async function getProductById(
     ...p,
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
+    images: extractProductImages(p),
   };
 }
 
@@ -337,5 +408,6 @@ export async function getRelatedProducts(
     ...p,
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
+    images: extractProductImages(p),
   }));
 }

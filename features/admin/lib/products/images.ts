@@ -12,6 +12,10 @@ import {
   uploadBufferToCloudinary,
   deleteFromCloudinary,
 } from "@/lib/cloudinary";
+import {
+  encodeProductMetadata,
+  extractProductImages,
+} from "@/features/catalog/lib/catalog";
 
 /**
  * Product image lifecycle (ADR-0008) backed by Cloudinary.
@@ -138,70 +142,194 @@ export async function removeProductImage(
   }
 }
 
+
 /**
- * Uploads the image to Cloudinary first, then creates the Product.
- * If the insert fails, the freshly uploaded image is deleted best-effort
- * so a failed create leaves no orphan.
+ * Validates, compresses, and uploads multiple images to Cloudinary,
+ * returning their secure public URLs.
+ */
+export async function uploadMultipleProductImages(
+  _client: SupabaseClient,
+  files: File[],
+): Promise<{ urls: string[] } | { error: string }> {
+  for (const file of files) {
+    const invalid = validateImageFile(file);
+    if (invalid) return { error: invalid };
+  }
+
+  const uploadedUrls: string[] = [];
+  try {
+    for (const file of files) {
+      const processed = await compressImage(file);
+      const { url } = await uploadBufferToCloudinary(processed, {
+        folder: PRODUCT_IMAGE_FOLDER,
+      });
+      uploadedUrls.push(url);
+    }
+    return { urls: uploadedUrls };
+  } catch (error: unknown) {
+    // If one upload fails, clean up any images uploaded during this batch
+    for (const url of uploadedUrls) {
+      await removeProductImage(_client, url);
+    }
+    const message = error instanceof Error ? error.message : "Upload failed";
+    return { error: `Upload failed: ${message}` };
+  }
+}
+
+/**
+ * Uploads one or multiple images to Cloudinary first, then creates the Product.
+ * If the insert fails, all freshly uploaded images are deleted best-effort
+ * so a failed create leaves no orphans.
  */
 export async function createProductWithImage(
   client: SupabaseClient,
   input: ProductInput,
-  file: File,
+  files: File | File[],
 ): Promise<ProductMutationResult> {
-  const upload = await uploadProductImage(client, file);
+  const fileList = Array.isArray(files) ? files : [files];
+  if (fileList.length === 0) {
+    return { ok: false, message: "At least one image is required." };
+  }
+
+  const upload = await uploadMultipleProductImages(client, fileList);
   if ("error" in upload) {
     return { ok: false, message: upload.error };
   }
 
-  const result = await createProduct(client, { ...input, image_url: upload.url });
+  const allImages = upload.urls;
+  const primaryUrl = allImages[0];
+  const encodedDescription = encodeProductMetadata(input.description, {
+    categoryIds: input.category_ids,
+    images: allImages,
+  });
+
+  const result = await createProduct(client, {
+    ...input,
+    description: encodedDescription,
+    image_url: primaryUrl,
+    images: allImages,
+  });
+
   if (!result.ok) {
-    await removeProductImage(client, upload.url);
+    for (const url of allImages) {
+      await removeProductImage(client, url);
+    }
   }
   return result;
 }
 
 /**
- * Updates a Product, replacing its image when a new file is provided (keeps
- * the current one otherwise) and then best-effort removes the old Cloudinary
- * object so replacements never orphan images.
+ * Updates a Product, uploading any newly selected files to Cloudinary,
+ * preserving retained images, setting the primary image, and best-effort
+ * removing any replaced/deleted Cloudinary objects.
  */
 export async function updateProductWithImage(
   client: SupabaseClient,
   id: string,
   input: ProductInput,
-  file: File | null,
+  filesOrNewFiles: File | File[] | null,
+  retainedImages?: string[],
 ): Promise<ProductMutationResult> {
   const { data: current } = await client
     .from("products")
-    .select("image_url")
+    .select("image_url, description")
     .eq("id", id)
     .maybeSingle();
+
+  const previousImages = current ? extractProductImages(current as { image_url: string; description: string | null }) : [];
   const previousImageUrl = (current as { image_url?: string } | null)?.image_url ?? "";
 
-  let imageUrl = previousImageUrl;
-  if (file && file.size > 0) {
-    const upload = await uploadProductImage(client, file);
+  const newFiles = Array.isArray(filesOrNewFiles)
+    ? filesOrNewFiles
+    : filesOrNewFiles && filesOrNewFiles.size > 0
+      ? [filesOrNewFiles]
+      : [];
+
+  let newUploadedUrls: string[] = [];
+  if (newFiles.length > 0) {
+    const upload = await uploadMultipleProductImages(client, newFiles);
     if ("error" in upload) {
       return { ok: false, message: upload.error };
     }
-    imageUrl = upload.url;
+    newUploadedUrls = upload.urls;
   }
 
-  const result = await updateProduct(client, id, { ...input, image_url: imageUrl });
-  if (result.ok && previousImageUrl && previousImageUrl !== imageUrl) {
-    await removeProductImage(client, previousImageUrl);
+  // Determine final image list
+  let finalImages: string[];
+  if (retainedImages !== undefined) {
+    finalImages = [...retainedImages, ...newUploadedUrls];
+  } else if (newUploadedUrls.length > 0) {
+    // Single replacement without explicit retained list
+    finalImages = [...newUploadedUrls];
+  } else {
+    // No new files and no explicit retained list -> keep previous
+    finalImages = previousImages.length > 0
+      ? previousImages
+      : previousImageUrl
+        ? [previousImageUrl]
+        : [];
   }
+
+  if (finalImages.length === 0) {
+    for (const url of newUploadedUrls) {
+      await removeProductImage(client, url);
+    }
+    return {
+      ok: false,
+      message: "A product must always have at least one image — keep the existing one or choose a new one.",
+    };
+  }
+
+  const primaryUrl = finalImages[0];
+  const encodedDescription = encodeProductMetadata(input.description, {
+    categoryIds: input.category_ids,
+    images: finalImages,
+  });
+
+  const result = await updateProduct(client, id, {
+    ...input,
+    description: encodedDescription,
+    image_url: primaryUrl,
+    images: finalImages,
+  });
+
+  if (result.ok) {
+    // Best-effort removal of removed Cloudinary images
+    for (const oldUrl of previousImages) {
+      if (!finalImages.includes(oldUrl)) {
+        await removeProductImage(client, oldUrl);
+      }
+    }
+  } else {
+    // Clean up newly uploaded images on database failure
+    for (const url of newUploadedUrls) {
+      await removeProductImage(client, url);
+    }
+  }
+
   return result;
 }
 
-/** Deletes the Product, then best-effort removes its Cloudinary image. */
+/** Deletes the Product, then best-effort removes its Cloudinary images. */
 export async function deleteProductWithImage(
   client: SupabaseClient,
   id: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data: current } = await client
+    .from("products")
+    .select("image_url, description")
+    .eq("id", id)
+    .maybeSingle();
+
+  const imagesToDelete = current
+    ? extractProductImages(current as { image_url: string; description: string | null })
+    : [];
+
   const result = await deleteProduct(client, id);
-  if (result.ok && result.image_url) {
-    await removeProductImage(client, result.image_url);
+  if (result.ok) {
+    for (const url of imagesToDelete) {
+      await removeProductImage(client, url);
+    }
   }
   return result.ok ? { ok: true } : result;
 }

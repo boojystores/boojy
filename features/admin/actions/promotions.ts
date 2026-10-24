@@ -36,3 +36,34 @@ export async function savePromoConfig(
     };
   }
 }
+
+import { compressImage } from "@/features/admin/lib/products/images";
+import { validateImageFile } from "@/features/admin/lib/products/products";
+import { uploadBufferToCloudinary } from "@/lib/cloudinary";
+
+export async function uploadPromoBannerAction(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) {
+    return { ok: false, error: "Please select an image file." };
+  }
+
+  const invalid = validateImageFile(file);
+  if (invalid) {
+    return { ok: false, error: invalid };
+  }
+
+  try {
+    const compressed = await compressImage(file);
+    const { url } = await uploadBufferToCloudinary(compressed, {
+      folder: "boojy/promotions",
+    });
+    return { ok: true, url };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to upload banner to Cloudinary.",
+    };
+  }
+}

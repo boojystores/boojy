@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cleanProductDescription,
   extractProductCategories,
+  extractProductImages,
   PRODUCT_COLUMNS,
   type Product,
   type ProductStatus,
@@ -24,6 +25,7 @@ export type ProductInput = {
   category_id: string | null;
   category_ids?: string[];
   image_url: string;
+  images?: string[];
 };
 
 export type ProductMutationResult =
@@ -110,6 +112,7 @@ export async function listAdminProducts(
           : product.category_id
             ? (names.get(product.category_id) ?? null)
             : null,
+      images: extractProductImages(product),
     };
   });
 }
@@ -120,6 +123,7 @@ export async function createProduct(
 ): Promise<ProductMutationResult> {
   const payload = { ...input };
   delete payload.category_ids;
+  delete payload.images;
   const { data, error } = await client
     .from("products")
     .insert(payload)
@@ -136,6 +140,7 @@ export async function createProduct(
       ...p,
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
+      images: extractProductImages(p),
     },
   };
 }
@@ -156,6 +161,7 @@ export async function updateProduct(
 
   const payload = { ...input };
   delete payload.category_ids;
+  delete payload.images;
   const { data, error } = await client
     .from("products")
     .update(payload)
@@ -173,6 +179,7 @@ export async function updateProduct(
       ...p,
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
+      images: extractProductImages(p),
     },
   };
 }

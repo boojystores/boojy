@@ -32,7 +32,7 @@ import {
  */
 function parseProductForm(
   formData: FormData,
-): { input?: ProductInput; error?: string } {
+): { input?: ProductInput; existingImages?: string[]; error?: string } {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const priceRaw = String(formData.get("price") ?? "").trim();
@@ -55,6 +55,12 @@ function parseProductForm(
   }
   const category_id = category_ids[0] ?? null;
   const encodedDescription = encodeDescriptionCategories(description, category_ids);
+
+  const existingImages = formData
+    .getAll("existing_images")
+    .map(String)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   if (!name) return { error: "Product name is required." };
   // Reject blank fields explicitly — Number("") is 0, which would silently
@@ -84,6 +90,7 @@ function parseProductForm(
       category_ids,
       image_url: "",
     },
+    existingImages,
   };
 }
 
@@ -96,13 +103,18 @@ export async function createProductAction(
     return { ok: false, message: error ?? "Invalid form data." };
   }
 
-  // The image is mandatory on create.
-  const file = formData.get("image") as File | null;
-  if (!file || file.size === 0) {
-    return { ok: false, message: "An image is required." };
+  // Get all image files (supports multiple "new_images", "images", or single "image")
+  const rawFiles = [
+    ...formData.getAll("new_images"),
+    ...formData.getAll("images"),
+    formData.get("image"),
+  ].filter((f): f is File => f instanceof File && f.size > 0);
+
+  if (rawFiles.length === 0) {
+    return { ok: false, message: "At least one image is required." };
   }
 
-  return createProductWithImage(supabase, input, file);
+  return createProductWithImage(supabase, input, rawFiles);
 }
 
 export async function updateProductAction(
@@ -110,16 +122,21 @@ export async function updateProductAction(
 ): Promise<ProductMutationResult> {
   const supabase = await createClient();
   const id = String(formData.get("id") ?? "");
-  const { input, error } = parseProductForm(formData);
+  const { input, existingImages, error } = parseProductForm(formData);
   if (error || !input || !id) {
     return { ok: false, message: error ?? "Invalid form data." };
   }
 
-  // The image is optional on edit: keep the current URL unless a new file is
-  // provided (the current URL is read from the database by the seam).
-  const file = formData.get("image") as File | null;
+  const rawFiles = [
+    ...formData.getAll("new_images"),
+    ...formData.getAll("images"),
+    formData.get("image"),
+  ].filter((f): f is File => f instanceof File && f.size > 0);
 
-  return updateProductWithImage(supabase, id, input, file);
+  const filesParam = rawFiles.length > 0 ? rawFiles : null;
+  const retainedParam = formData.has("existing_images") ? existingImages : undefined;
+
+  return updateProductWithImage(supabase, id, input, filesParam, retainedParam);
 }
 
 export async function deleteProductAction(

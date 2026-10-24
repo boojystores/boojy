@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useCartStore } from "@/features/cart/lib/cart";
 import {
   cleanProductDescription,
+  extractProductImages,
   type Category,
   type Product,
 } from "@/features/catalog/lib/catalog";
@@ -36,8 +37,14 @@ export function ProductView({
   const outOfStock = product.stock_quantity === 0;
   const maxQuantity = Math.max(1, product.stock_quantity);
 
-  // Gallery images support
-  const galleryImages = [product.image_url];
+  // Gallery images support (any number of uploaded product pictures)
+  const galleryImages =
+    product.images && product.images.length > 0
+      ? product.images
+      : extractProductImages(product);
+
+  const currentImage =
+    galleryImages[selectedImageIndex] || galleryImages[0] || product.image_url;
 
   useEffect(() => {
     return () => {
@@ -71,71 +78,81 @@ export function ProductView({
           <div className="group relative aspect-square w-full max-w-[540px] lg:max-w-[620px] overflow-hidden border border-border/60 bg-[#f4f2ee] dark:bg-muted/15 flex items-center justify-center rounded-none shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={galleryImages[selectedImageIndex] || product.image_url}
+              src={currentImage}
               alt={product.name}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
             />
 
-            {/* Left Navigation Button: Visible on mobile, appears on hover on desktop */}
-            <button
-              type="button"
-              onClick={() =>
-                setSelectedImageIndex((prev) =>
-                  prev > 0 ? prev - 1 : galleryImages.length - 1,
-                )
-              }
-              aria-label="Previous image"
-              className={cn(
-                "absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center",
-                "border border-border/80 bg-background/90 text-foreground shadow-xs rounded-none transition-all duration-200 hover:bg-background",
-                "opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:pointer-events-none lg:group-hover:pointer-events-auto",
-              )}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+            {/* Left & Right Navigation Buttons: Rendered when multiple images exist */}
+            {galleryImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedImageIndex((prev) =>
+                      prev > 0 ? prev - 1 : galleryImages.length - 1,
+                    )
+                  }
+                  aria-label="Previous image"
+                  className={cn(
+                    "absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center",
+                    "border border-border/80 bg-background/90 text-foreground shadow-xs rounded-none transition-all duration-200 hover:bg-background",
+                    "opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:pointer-events-none lg:group-hover:pointer-events-auto",
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
 
-            {/* Right Navigation Button: Visible on mobile, appears on hover on desktop */}
-            <button
-              type="button"
-              onClick={() =>
-                setSelectedImageIndex((prev) =>
-                  prev < galleryImages.length - 1 ? prev + 1 : 0,
-                )
-              }
-              aria-label="Next image"
-              className={cn(
-                "absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center",
-                "border border-border/80 bg-background/90 text-foreground shadow-xs rounded-none transition-all duration-200 hover:bg-background",
-                "opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:pointer-events-none lg:group-hover:pointer-events-auto",
-              )}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedImageIndex((prev) =>
+                      prev < galleryImages.length - 1 ? prev + 1 : 0,
+                    )
+                  }
+                  aria-label="Next image"
+                  className={cn(
+                    "absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center",
+                    "border border-border/80 bg-background/90 text-foreground shadow-xs rounded-none transition-all duration-200 hover:bg-background",
+                    "opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:pointer-events-none lg:group-hover:pointer-events-auto",
+                  )}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {/* Counter Pill Badge */}
+                <span className="absolute bottom-3 right-3 rounded-none border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground backdrop-blur-xs">
+                  {selectedImageIndex + 1} / {galleryImages.length}
+                </span>
+              </>
+            )}
           </div>
 
-          {/* Bottom Thumbnails Strip */}
-          <div className="flex w-full max-w-[540px] lg:max-w-[620px] items-center gap-2.5 pt-3 overflow-x-auto">
-            {galleryImages.map((imgUrl, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setSelectedImageIndex(idx)}
-                className={cn(
-                  "relative h-16 w-14 sm:h-18 sm:w-16 shrink-0 overflow-hidden bg-[#f4f2ee] dark:bg-muted/20 transition-all rounded-none",
-                  selectedImageIndex === idx
-                    ? "border-2 border-foreground shadow-xs"
-                    : "border border-border/70 opacity-70 hover:opacity-100",
-                )}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imgUrl}
-                  alt={`${product.name} thumbnail ${idx + 1}`}
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
+          {/* Bottom Thumbnails Strip (shown when more than 1 image) */}
+          {galleryImages.length > 1 && (
+            <div className="flex w-full max-w-[540px] lg:max-w-[620px] items-center gap-2.5 pt-3 overflow-x-auto">
+              {galleryImages.map((imgUrl, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSelectedImageIndex(idx)}
+                  className={cn(
+                    "relative h-16 w-14 sm:h-18 sm:w-16 shrink-0 overflow-hidden bg-[#f4f2ee] dark:bg-muted/20 transition-all rounded-none",
+                    selectedImageIndex === idx
+                      ? "border-2 border-foreground shadow-xs"
+                      : "border border-border/70 opacity-70 hover:opacity-100",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imgUrl}
+                    alt={`${product.name} thumbnail ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Product Info & Purchase Panel */}

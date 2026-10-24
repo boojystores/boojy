@@ -2,10 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, ImagePlus, Loader2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ImagePlus,
+  Loader2,
+  Star,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import {
   cleanProductDescription,
   extractProductCategories,
+  extractProductImages,
   type Category,
   type ProductStatus,
 } from "@/features/catalog/lib/catalog";
@@ -29,6 +38,10 @@ type FormState = {
   description: string;
 };
 
+type PhotoItem =
+  | { id: string; type: "existing"; url: string }
+  | { id: string; type: "new"; file: File; previewUrl: string };
+
 export function ProductFormModal({
   mode,
   product,
@@ -50,6 +63,8 @@ export function ProductFormModal({
         : extractProductCategories(product))
     : [];
 
+  const initialImages = product ? extractProductImages(product) : [];
+
   const [form, setForm] = useState<FormState>(() => ({
     name: product?.name ?? "",
     category_ids: initialCategoryIds,
@@ -58,23 +73,35 @@ export function ProductFormModal({
     status: product?.status ?? "active",
     description: product?.description ? cleanProductDescription(product.description) : "",
   }));
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(
-    product?.image_url ?? null,
+
+  const [photos, setPhotos] = useState<PhotoItem[]>(() =>
+    initialImages.map((url, i) => ({
+      id: `existing-${i}-${url}`,
+      type: "existing",
+      url,
+    })),
   );
+
   const [fileError, setFileError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
-  // Tracks the preview blob URL so it is always revoked (never leaked).
-  const previewUrlRef = useRef<string | null>(null);
+  const createdBlobUrls = useRef<Set<string>>(new Set());
 
-  // Dirty check: compare current form state with initial values.
+  // Dirty check: compare current form state with initial values
   const categoriesChanged =
     JSON.stringify([...form.category_ids].sort()) !==
     JSON.stringify([...initialCategoryIds].sort());
+
+  const photosChanged =
+    mode === "create"
+      ? photos.length > 0
+      : photos.length !== initialImages.length ||
+        photos.some((p) => p.type === "new") ||
+        photos.some((p, idx) => p.type === "existing" && p.url !== initialImages[idx]);
 
   const isDirty =
     mode === "create" ||
@@ -84,7 +111,7 @@ export function ProductFormModal({
     form.stock_quantity !== (product ? String(product.stock_quantity) : "") ||
     form.status !== (product?.status ?? "active") ||
     form.description !== (product?.description ? cleanProductDescription(product.description) : "") ||
-    file !== null;
+    photosChanged;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -99,20 +126,20 @@ export function ProductFormModal({
     };
   }, [onClose]);
 
-  // Revoke the preview blob URL exactly once, on unmount.
-  useEffect(
-    () => () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    },
-    [],
-  );
+  // Revoke all created blob URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    const blobs = createdBlobUrls.current;
+    return () => {
+      blobs.forEach((url) => URL.revokeObjectURL(url));
+      blobs.clear();
+    };
+  }, []);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   function toggleCategory(categoryId: string) {
-    if (lockedFields) return;
     setForm((prev) => {
       const exists = prev.category_ids.includes(categoryId);
       const next = exists
@@ -122,28 +149,51 @@ export function ProductFormModal({
     });
   }
 
-  function handleFileChange(selected: File | null) {
-    setFile(selected);
-    if (!selected) {
-      if (previewUrlRef.current) {
-        URL.revokeObjectURL(previewUrlRef.current);
-        previewUrlRef.current = null;
-      }
-      setPreview(product?.image_url ?? null);
-      setFileError(null);
-      return;
-    }
-    const invalid = validateImageFile(selected);
-    if (invalid) {
-      setFileError(invalid);
-      setPreview(product?.image_url ?? null);
-      return;
-    }
+  function handleFilesSelected(fileList: FileList | File[] | null) {
+    if (!fileList || fileList.length === 0) return;
+    const selected = Array.from(fileList);
     setFileError(null);
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    const url = URL.createObjectURL(selected);
-    previewUrlRef.current = url;
-    setPreview(url);
+
+    // Validate all files
+    const validItems: PhotoItem[] = [];
+    for (const f of selected) {
+      const invalid = validateImageFile(f);
+      if (invalid) {
+        setFileError(`${f.name}: ${invalid}`);
+        return;
+      }
+      const previewUrl = URL.createObjectURL(f);
+      createdBlobUrls.current.add(previewUrl);
+      validItems.push({
+        id: `new-${crypto.randomUUID()}`,
+        type: "new",
+        file: f,
+        previewUrl,
+      });
+    }
+
+    setPhotos((prev) => [...prev, ...validItems]);
+  }
+
+  function handleRemovePhoto(index: number) {
+    setPhotos((prev) => {
+      const target = prev[index];
+      if (target?.type === "new") {
+        URL.revokeObjectURL(target.previewUrl);
+        createdBlobUrls.current.delete(target.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function handleMakeCover(index: number) {
+    if (index === 0) return;
+    setPhotos((prev) => {
+      const target = prev[index];
+      if (!target) return prev;
+      const without = prev.filter((_, i) => i !== index);
+      return [target, ...without];
+    });
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -159,8 +209,9 @@ export function ProductFormModal({
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) handleFileChange(droppedFile);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -184,8 +235,8 @@ export function ProductFormModal({
       setFormError("Enter a valid stock quantity.");
       return;
     }
-    if (mode === "create" && !file) {
-      setFileError("An image is required.");
+    if (photos.length === 0) {
+      setFileError("At least one product photo is required.");
       return;
     }
 
@@ -200,7 +251,18 @@ export function ProductFormModal({
     if (mode === "edit" && product) {
       formData.set("id", product.id);
     }
-    if (file) formData.set("image", file);
+
+    // Append all photos in order
+    for (const p of photos) {
+      if (p.type === "existing") {
+        formData.append("existing_images", p.url);
+      } else {
+        formData.append("new_images", p.file);
+        if (!formData.has("image")) {
+          formData.set("image", p.file);
+        }
+      }
+    }
 
     inFlightRef.current = true;
     setSubmitting(true);
@@ -213,8 +275,8 @@ export function ProductFormModal({
       if (result.ok) {
         onSaved(
           mode === "create"
-            ? `"${result.product.name}" created`
-            : `"${result.product.name}" updated`,
+            ? `"${result.product.name}" created with ${photos.length} photo${photos.length > 1 ? "s" : ""}`
+            : `"${result.product.name}" saved with Cloudinary photos updated`,
         );
         onClose();
       } else {
@@ -225,9 +287,6 @@ export function ProductFormModal({
       setSubmitting(false);
     }
   }
-
-  // Fields that are locked when the product has been ordered.
-  const lockedFields = hasOrders;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -243,12 +302,18 @@ export function ProductFormModal({
         aria-modal="true"
         aria-labelledby="product-form-title"
         tabIndex={-1}
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border border-border bg-background shadow-2xl outline-none"
+        className="relative flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden border border-border bg-background shadow-2xl outline-none"
       >
+        {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 id="product-form-title" className="text-lg font-bold tracking-tight">
-            {mode === "create" ? "New product" : `Edit — ${product?.name}`}
-          </h2>
+          <div className="min-w-0">
+            <h2 id="product-form-title" className="text-lg font-bold tracking-tight">
+              {mode === "create" ? "New Product" : `Edit Product — ${product?.name}`}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Upload photos to Cloudinary and customize details
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -260,72 +325,148 @@ export function ProductFormModal({
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
-          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            {/* Notice for ordered products */}
-            {lockedFields && (
-              <div className="flex items-start gap-2 border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            {/* Notice for ordered products (informational only; photo uploads remain unlocked) */}
+            {hasOrders && (
+              <div className="flex items-start gap-2 border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
-                  This product has been ordered. Name, image, price, and categories
-                  cannot be changed to preserve order history.
+                  This product has previous order history. Photos and details can be freely updated here; prior orders safely keep their historical receipt snapshots.
                 </p>
               </div>
             )}
 
-            {/* Image */}
-            <div className={cn(lockedFields && "pointer-events-none opacity-50")}>
-              <Label>Image</Label>
+            {/* Product Photos Section (Multi-Image Cloudinary Upload) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <UploadCloud className="h-4 w-4 text-foreground" />
+                  Product Photos
+                </Label>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {photos.length === 0
+                    ? "No photos added"
+                    : `${photos.length} photo${photos.length > 1 ? "s" : ""} (1st is cover)`}
+                </span>
+              </div>
+
+              {/* Photos Gallery / Thumbnails Strip */}
+              {photos.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 border border-border p-3 bg-muted/20">
+                  {photos.map((photo, index) => {
+                    const src = photo.type === "existing" ? photo.url : photo.previewUrl;
+                    const isCover = index === 0;
+
+                    return (
+                      <div
+                        key={photo.id}
+                        className={cn(
+                          "group relative aspect-square overflow-hidden border bg-background flex items-center justify-center",
+                          isCover ? "border-foreground ring-1 ring-foreground" : "border-border",
+                        )}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={`Product photo ${index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+
+                        {/* Cover Badge */}
+                        {isCover ? (
+                          <div className="absolute top-1 left-1 bg-black text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 shadow-xs">
+                            Cover
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleMakeCover(index)}
+                            title="Make this the storefront cover photo"
+                            className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 bg-background/90 hover:bg-background border border-border text-[9px] font-semibold uppercase px-1.5 py-0.5 text-foreground transition-opacity flex items-center gap-0.5 shadow-xs"
+                          >
+                            <Star className="h-2.5 w-2.5" />
+                            Cover
+                          </button>
+                        )}
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(index)}
+                          aria-label={`Remove photo ${index + 1}`}
+                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-background/90 hover:bg-destructive hover:text-white border border-border h-5 w-5 flex items-center justify-center text-foreground transition-all shadow-xs"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+
+                        {/* Index Number */}
+                        <span className="absolute bottom-1 right-1 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground border border-border/60">
+                          #{index + 1}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Upload Dropzone & Controls */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={cn(
-                  "mt-1.5 flex items-start gap-3 border-2 border-dashed p-4 transition-colors",
+                  "flex flex-col items-center justify-center border-2 border-dashed p-4 text-center transition-colors cursor-pointer",
                   dragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border",
+                    ? "border-foreground bg-foreground/5"
+                    : "border-border hover:border-foreground/40 bg-muted/10",
                 )}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border border-border bg-muted">
-                  {preview ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- admin preview
-                    <img src={preview} alt="Product preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                  )}
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                  <span>
+                    {dragging
+                      ? "Drop pictures here to upload…"
+                      : photos.length === 0
+                        ? "Choose product photos…"
+                        : "Change or add more photos…"}
+                  </span>
                 </div>
-                <label className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1">
-                  <span className="inline-flex h-9 w-fit items-center border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent">
-                    {dragging ? "Drop image here…" : file ? "Change image…" : "Choose image…"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
-                    className="sr-only"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    JPG, PNG, or WebP · max 5 MB
-                  </span>
-                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Select any amount of pictures · JPG, PNG, or WebP up to 5 MB each · Automatically saved to Cloudinary
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = ""; // Reset input so same files can be re-selected if desired
+                  }}
+                  className="sr-only"
+                />
               </div>
+
               {fileError && (
-                <p role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                <p role="alert" className="text-xs font-medium text-destructive">
                   {fileError}
                 </p>
               )}
             </div>
 
+            {/* Product Name */}
             <Field label="Name" htmlFor="product-name">
               <Input
                 id="product-name"
                 value={form.name}
                 onChange={(event) => set("name", event.target.value)}
                 placeholder="Gan 356 M"
-                disabled={lockedFields}
               />
             </Field>
 
+            {/* Price & Stock */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Price (NGN ₦)" htmlFor="product-price">
                 <Input
@@ -337,7 +478,6 @@ export function ProductFormModal({
                   value={form.price}
                   onChange={(event) => set("price", event.target.value)}
                   placeholder="12.99"
-                  disabled={lockedFields}
                 />
               </Field>
               <Field label="Stock quantity" htmlFor="product-stock">
@@ -355,7 +495,7 @@ export function ProductFormModal({
             </div>
 
             {/* Categories Multi-Select */}
-            <div className={cn(lockedFields && "pointer-events-none opacity-50")}>
+            <div>
               <div className="flex items-center justify-between">
                 <Label>Categories</Label>
                 <span className="text-xs text-muted-foreground">
@@ -374,14 +514,12 @@ export function ProductFormModal({
                     <button
                       key={category.id}
                       type="button"
-                      disabled={lockedFields}
                       onClick={() => toggleCategory(category.id)}
                       className={cn(
                         "flex items-center gap-2 border px-3 py-2 text-xs font-medium uppercase tracking-wider transition-colors",
                         isSelected
                           ? "border-foreground bg-foreground text-background shadow-sm"
                           : "border-border bg-background text-muted-foreground hover:border-foreground/50 hover:text-foreground",
-                        lockedFields && "pointer-events-none opacity-50",
                       )}
                     >
                       <div
@@ -401,6 +539,7 @@ export function ProductFormModal({
               </div>
             </div>
 
+            {/* Visibility Status */}
             <Field label="Status" htmlFor="product-status">
               <select
                 id="product-status"
@@ -408,11 +547,12 @@ export function ProductFormModal({
                 onChange={(event) => set("status", event.target.value as ProductStatus)}
                 className="h-9 w-full border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="active">Active (visible)</option>
+                <option value="active">Active (visible on storefront)</option>
                 <option value="inactive">Inactive (hidden)</option>
               </select>
             </Field>
 
+            {/* Description */}
             <Field label="Description" htmlFor="product-description">
               <textarea
                 id="product-description"
@@ -434,14 +574,24 @@ export function ProductFormModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || !isDirty}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "create" ? "Create product" : "Save changes"}
-            </Button>
+          {/* Modal Actions */}
+          <div className="flex items-center justify-between border-t border-border px-5 py-4 bg-muted/10">
+            <div className="text-xs text-muted-foreground">
+              {photos.length > 0 && `${photos.length} image${photos.length > 1 ? "s" : ""} queued`}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting || !isDirty}>
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting
+                  ? "Saving to Cloudinary…"
+                  : mode === "create"
+                    ? "Create Product"
+                    : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
@@ -466,3 +616,4 @@ function Field({
     </div>
   );
 }
+

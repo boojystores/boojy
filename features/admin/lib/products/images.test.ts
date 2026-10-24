@@ -264,6 +264,33 @@ describe("updateProductWithImage (Cloudinary)", () => {
     if (!result.ok) return;
     expect(result.product.image_url).not.toBe(row.image_url);
   });
+
+  it("supports uploading multiple pictures and preserving retained images", async () => {
+    const supabase = createMockSupabase({ products: [row] });
+    mockCloudinaryStorage.set("boojy/products/old", Buffer.from([1]));
+
+    const file1 = await makePng();
+    const file2 = await makePng();
+
+    const result = await updateProductWithImage(
+      toClient(supabase),
+      "p1",
+      input,
+      [file1, file2],
+      ["https://picsum.photos/keep-this.jpg"],
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Cover photo is the first in the retained list
+    expect(result.product.image_url).toBe("https://picsum.photos/keep-this.jpg");
+    // All 3 images are present in the product's image collection
+    expect(result.product.images).toHaveLength(3);
+    // 2 new images uploaded to Cloudinary
+    expect(mockCloudinaryStorage.size).toBe(2);
+    // Old un-retained Cloudinary image removed
+    expect(mockCloudinaryStorage.has("boojy/products/old")).toBe(false);
+  });
 });
 
 describe("deleteProductWithImage (Cloudinary)", () => {
