@@ -1,0 +1,38 @@
+[
+  {
+    "id": "bachs",
+    "hint": "Pay securely with Debit Card or Bank Transfer via Bachs.",
+    "name": "Cards & Bank Transfer (Bachs.io)",
+    "badge": "Automated Gateway",
+    "enabled": true,
+    "provider": "bachs",
+    "description": "Accept automated debit/credit card payments and bank transfers with instant verification via Bachs.io.",
+    "supportedCurrencies": [
+      "NGN"
+    ]
+  },
+  {
+    "id": "ewallet",
+    "hint": "Bank transfer, OPay, PalmPay, or instant wallet.",
+    "name": "Instant Transfer / E-Wallet",
+    "badge": "Mobile Wallets",
+    "enabled": true,
+    "provider": "ewallet",
+    "description": "Accept direct wallet transfers from popular services like OPay, PalmPay, and instant payment apps.",
+    "supportedCurrencies": [
+      "NGN"
+    ]
+  },
+  {
+    "id": "bank_transfer",
+    "hint": "Transfer directly to store account — payment details sent via email.",
+    "name": "Direct Bank Transfer",
+    "badge": "Manual Verification",
+    "enabled": true,
+    "provider": "bank_transfer",
+    "description": "Accept direct transfers to the official Boojy store account with order reference.",
+    "supportedCurrencies": [
+      "NGN"
+    ]
+  }
+]

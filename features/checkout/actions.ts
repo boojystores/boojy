@@ -88,6 +88,23 @@ export async function submitCheckout(input: {
     };
   }
 
+  // Validate that the payment method is currently enabled by store admin
+  try {
+    const { getPaymentMethodsConfig } = await import("@/features/admin/actions/payments");
+    const configuredMethods = await getPaymentMethodsConfig();
+    const selectedConfig = configuredMethods.find((m) => m.id === details.paymentMethod);
+    if (selectedConfig && !selectedConfig.enabled) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: `"${selectedConfig.name}" is currently turned off. Please select another payment method.`,
+        field: "paymentMethod",
+      };
+    }
+  } catch {
+    // If config lookup fails, allow default methods to proceed
+  }
+
   if (details.paymentMethod === "bachs" && !isBachsConfigured()) {
     return {
       ok: false,

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   FolderTree,
   LayoutDashboard,
   LogOut,
@@ -39,6 +40,7 @@ const navItems: {
   },
   { href: "/admin/products", label: "Products", icon: Package, ready: true },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag, ready: true },
+  { href: "/admin/payments", label: "Payments", icon: CreditCard, ready: true },
   { href: "/admin/customers", label: "Customers", icon: Users, ready: true },
   { href: "/admin/promotions", label: "Promotions", icon: Sparkles, ready: true },
 ];

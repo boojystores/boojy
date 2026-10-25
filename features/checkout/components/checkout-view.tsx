@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   ChevronLeft,
   Download,
   Loader2,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   X,
@@ -15,6 +16,7 @@ import {
 import { cartCount, cartSubtotal, useCartStore, type CartItem } from "@/features/cart/lib/cart";
 import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
+import { type PaymentMethodConfig } from "@/features/checkout/lib/payment-methods";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,11 @@ const EMPTY_FORM: FormFields = {
   paymentMethod: "bachs",
 };
 
-export function CheckoutView() {
+export function CheckoutView({
+  initialPaymentMethods,
+}: {
+  initialPaymentMethods?: PaymentMethodConfig[];
+} = {}) {
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -60,7 +66,37 @@ export function CheckoutView() {
   useCartReconcile();
   const unavailableCount = items.filter((item) => item.unavailable).length;
 
-  const [fields, setFields] = useState<FormFields>(EMPTY_FORM);
+  const availablePaymentMethods = useMemo(() => {
+    if (initialPaymentMethods && initialPaymentMethods.length > 0) {
+      return initialPaymentMethods.filter((m) => m.enabled);
+    }
+    return PAYMENT_OPTIONS.map((opt) => ({
+      id: opt.value,
+      name: opt.label,
+      hint: opt.hint,
+      badge: undefined as string | undefined,
+      enabled: true,
+    }));
+  }, [initialPaymentMethods]);
+
+  const [fields, setFields] = useState<FormFields>(() => ({
+    ...EMPTY_FORM,
+    paymentMethod: (availablePaymentMethods[0]?.id as PaymentMethod) || "bachs",
+  }));
+
+  // Ensure active payment method is selected if default or previous was disabled
+  useEffect(() => {
+    if (availablePaymentMethods.length > 0) {
+      const isValid = availablePaymentMethods.some((m) => m.id === fields.paymentMethod);
+      if (!isValid) {
+        setFields((prev) => ({
+          ...prev,
+          paymentMethod: availablePaymentMethods[0].id as PaymentMethod,
+        }));
+      }
+    }
+  }, [availablePaymentMethods, fields.paymentMethod]);
+
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CheckoutActionResponse | null>(null);
@@ -293,38 +329,56 @@ export function CheckoutView() {
                 Payment method
               </h2>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Recorded only — no payment is taken on this site.
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                Secure & verified payment processing.
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
-                {PAYMENT_OPTIONS.map((option) => {
-                  const active = fields.paymentMethod === option.value;
-                  return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        "flex cursor-pointer flex-col gap-1 rounded-lg border p-2.5 transition-colors sm:p-3",
-                        active
-                          ? "border-primary bg-primary/5"
-                          : "border-border/50 bg-card/10 hover:border-primary/40",
-                      )}
-                    >
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={option.value}
-                          checked={active}
-                          onChange={() => set("paymentMethod")(option.value)}
-                          className="h-3.5 w-3.5 accent-primary"
-                        />
-                        {option.label}
-                      </span>
-                      <span className="pl-6 text-xs text-muted-foreground">{option.hint}</span>
-                    </label>
-                  );
-                })}
-              </div>
+
+              {availablePaymentMethods.length === 0 ? (
+                <div className="mt-4 flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-xs sm:text-sm text-amber-700 dark:text-amber-400">
+                  <ShieldAlert className="h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Checkout Temporarily Unavailable</p>
+                    <p className="mt-0.5 text-xs">
+                      All payment methods are currently turned off for maintenance. Please check back shortly.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
+                  {availablePaymentMethods.map((option) => {
+                    const active = fields.paymentMethod === option.id;
+                    return (
+                      <label
+                        key={option.id}
+                        className={cn(
+                          "flex cursor-pointer flex-col gap-1 rounded-lg border p-2.5 transition-colors sm:p-3",
+                          active
+                            ? "border-primary bg-primary/5"
+                            : "border-border/50 bg-card/10 hover:border-primary/40",
+                        )}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value={option.id}
+                            checked={active}
+                            onChange={() => set("paymentMethod")(option.id as PaymentMethod)}
+                            className="h-3.5 w-3.5 accent-primary"
+                          />
+                          <span className="flex-1">{option.name}</span>
+                          {option.badge && (
+                            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                              {option.badge}
+                            </span>
+                          )}
+                        </span>
+                        <span className="pl-6 text-xs text-muted-foreground">{option.hint}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             <ErrorBanner result={result} onDismiss={() => setResult(null)} />
@@ -332,7 +386,7 @@ export function CheckoutView() {
             <Button
               type="button"
               size="lg"
-              disabled={submitting || unavailableCount > 0}
+              disabled={submitting || unavailableCount > 0 || availablePaymentMethods.length === 0}
               className="w-full sm:w-auto"
               onClick={() => {
                 // Validate fields before opening confirmation modal

@@ -2,18 +2,24 @@ import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { CheckoutView } from "@/features/checkout/components/checkout-view";
+import { getPaymentMethodsConfig } from "@/features/admin/actions/payments";
 
 export const metadata: Metadata = {
   title: "Checkout — Boojy",
   description: "Place your Boojy order as a guest — no account needed.",
 };
 
-export default function CheckoutPage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default async function CheckoutPage() {
+  const paymentMethods = await getPaymentMethodsConfig();
+
   return (
     <div className="flex min-h-screen flex-col">
       <StorefrontHeader />
       <main className="flex-1">
-        <CheckoutView />
+        <CheckoutView initialPaymentMethods={paymentMethods} />
       </main>
       <SiteFooter />
     </div>
