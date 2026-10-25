@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   description: "Browse the Boojy catalog — search, filter by category, and sort by price.",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ProductsPage({
   searchParams,
 }: {

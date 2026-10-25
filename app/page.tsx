@@ -7,6 +7,9 @@ import {
   FeaturedCatalogSkeleton,
 } from "@/features/catalog/components/featured-catalog";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">

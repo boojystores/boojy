@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FolderPlus, Pencil, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, FolderPlus, Pencil, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   listCategoriesWithCounts,
@@ -11,6 +11,7 @@ import {
   createCategoryAction,
   deleteCategoryAction,
   renameCategoryAction,
+  saveCategoryOrderAction,
 } from "@/features/admin/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,29 @@ export function CategoriesManager({
 
   async function refresh() {
     const supabase = createClient();
-    setCategories(await listCategoriesWithCounts(supabase));
+    const currentOrder = categories.map((c) => c.id);
+    setCategories(await listCategoriesWithCounts(supabase, currentOrder));
+  }
+
+  async function handleMove(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= categories.length) return;
+
+    const reordered = [...categories];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    setCategories(reordered);
+
+    const orderedIds = reordered.map((c) => c.id);
+    try {
+      await saveCategoryOrderAction(orderedIds);
+      setToast({
+        message: `Order updated — "${moved.name}" is now #${targetIndex + 1} on storefront`,
+        tone: "success",
+      });
+    } catch {
+      setToast({ message: "Failed to update category order", tone: "error" });
+    }
   }
 
   async function handleCreate(name: string) {
@@ -123,6 +146,13 @@ export function CategoriesManager({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Description banner */}
+      <div className="rounded-lg border border-border/70 bg-card/60 p-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <p>
+          <strong className="text-foreground font-semibold">Storefront Display Order:</strong> Use the up (▲) and down (▼) buttons on each category to set which category section appears 1st, 2nd, etc. on the homepage.
+        </p>
+      </div>
+
       {/* Toolbar: search + create button */}
       <div className="flex items-center gap-3">
         <div className="relative min-w-0 flex-1">
@@ -151,49 +181,83 @@ export function CategoriesManager({
         </div>
       ) : (
         <ul className="min-h-[400px] max-h-[600px] divide-y divide-border overflow-y-auto rounded-xl border border-border bg-background">
-          {filtered.map((category) => (
-            <li
-              key={category.id}
-              className="flex items-center justify-between p-4"
-            >
-              {/* Category info */}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-medium">{category.name}</p>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {category.productCount} product
-                    {category.productCount === 1 ? "" : "s"}
+          {filtered.map((category) => {
+            const rawIndex = categories.findIndex((c) => c.id === category.id);
+            const isFirst = rawIndex === 0;
+            const isLast = rawIndex === categories.length - 1;
+            return (
+              <li
+                key={category.id}
+                className="flex items-center justify-between p-4 gap-3"
+              >
+                {/* Order Index & Stepper */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleMove(rawIndex, -1)}
+                      disabled={isFirst}
+                      aria-label={`Move ${category.name} up`}
+                      title="Move up"
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none rounded hover:bg-muted transition-colors"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(rawIndex, 1)}
+                      disabled={isLast}
+                      aria-label={`Move ${category.name} down`}
+                      title="Move down"
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none rounded hover:bg-muted transition-colors"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted/80 font-mono text-xs font-bold text-foreground">
+                    #{rawIndex + 1}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  /{category.slug}
-                </p>
-              </div>
 
-              {/* Row actions */}
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setEditing(category)}
-                  aria-label={`Edit ${category.name}`}
-                  className={iconButton}
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteClick(category)}
-                  aria-label={`Delete ${category.name}`}
-                  className={cn(
-                    iconButton,
-                    "hover:bg-destructive/10 hover:text-destructive",
-                  )}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </li>
-          ))}
+                {/* Category info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate font-medium">{category.name}</p>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {category.productCount} product
+                      {category.productCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    /{category.slug}
+                  </p>
+                </div>
+
+                {/* Row actions */}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(category)}
+                    aria-label={`Edit ${category.name}`}
+                    className={iconButton}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteClick(category)}
+                    aria-label={`Delete ${category.name}`}
+                    className={cn(
+                      iconButton,
+                      "hover:bg-destructive/10 hover:text-destructive",
+                    )}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 

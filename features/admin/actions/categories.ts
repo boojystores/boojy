@@ -36,3 +36,22 @@ export async function deleteCategoryAction(
   const supabase = await createClient();
   return deleteCategory(supabase, id);
 }
+
+export async function getCategoryOrderAction(): Promise<string[]> {
+  const { getCategoryOrder } = await import("@/features/catalog/lib/category-order.server");
+  return getCategoryOrder();
+}
+
+export async function saveCategoryOrderAction(
+  orderedIds: string[],
+): Promise<{ ok: boolean }> {
+  const { saveCategoryOrder } = await import("@/features/catalog/lib/category-order.server");
+  const { revalidatePath } = await import("next/cache");
+  const res = await saveCategoryOrder(orderedIds);
+  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/categories");
+  return res;
+}
+

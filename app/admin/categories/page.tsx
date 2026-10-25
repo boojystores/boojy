@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { listCategoriesWithCounts } from "@/features/admin/lib/categories/categories";
 import { CategoriesManager } from "@/features/admin/components/categories-manager";
 
+import { getCategoryOrder } from "@/features/catalog/lib/category-order.server";
+
 export const metadata: Metadata = {
   title: "Categories — Boojy Admin",
   description: "Manage store categories: create, rename, and delete.",
@@ -10,7 +12,8 @@ export const metadata: Metadata = {
 
 export default async function AdminCategoriesPage() {
   const supabase = await createClient();
-  const categories = await listCategoriesWithCounts(supabase);
+  const order = await getCategoryOrder();
+  const categories = await listCategoriesWithCounts(supabase, order);
 
   return (
     <div className="flex flex-col gap-8">

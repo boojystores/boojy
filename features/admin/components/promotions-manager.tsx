@@ -65,6 +65,28 @@ export function PromotionsManager({
     }
   }
 
+  async function handleToggle(newEnabled: boolean) {
+    const updated = { ...config, enabled: newEnabled };
+    setConfig(updated);
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+
+    try {
+      const res = await savePromoConfig(updated);
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setError(res.error || "Failed to update promotion status.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -104,10 +126,21 @@ export function PromotionsManager({
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
             {/* Enable Toggle */}
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <div>
-                <Label htmlFor="enabled-toggle" className="text-base font-semibold">
-                  Enable In-Grid Card
-                </Label>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="enabled-toggle" className="text-base font-semibold cursor-pointer">
+                    Enable In-Grid Card
+                  </Label>
+                  {config.enabled ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      Live on Storefront
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                      Off (Hidden)
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Display this promotional card inside the product grid
                 </p>
@@ -117,9 +150,8 @@ export function PromotionsManager({
                   id="enabled-toggle"
                   type="checkbox"
                   checked={config.enabled}
-                  onChange={(e) =>
-                    setConfig((c) => ({ ...c, enabled: e.target.checked }))
-                  }
+                  disabled={saving}
+                  onChange={(e) => handleToggle(e.target.checked)}
                   className="peer sr-only"
                 />
                 <div className="h-6 w-11 rounded-full bg-muted peer-checked:bg-primary transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full" />

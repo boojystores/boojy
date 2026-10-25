@@ -2,10 +2,17 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
-import { getFeaturedCategories, getFeaturedProducts } from "@/features/catalog/lib/catalog";
+import {
+  getFeaturedCategories,
+  getAllActiveProducts,
+  type Category,
+  type Product,
+} from "@/features/catalog/lib/catalog";
 import { ProductCard } from "@/features/catalog/components/product-card";
 import { PromoAdCard } from "@/features/catalog/components/promo-ad-card";
 import { getPromoConfig } from "@/features/admin/actions/promotions";
+import { getCategoryOrder } from "@/features/catalog/lib/category-order.server";
+import { sortCategoriesByOrder } from "@/features/catalog/lib/category-order";
 
 export async function FeaturedCatalog() {
   if (!hasEnvVars) {
@@ -13,90 +20,172 @@ export async function FeaturedCatalog() {
   }
 
   const supabase = await createClient();
-  const [categories, products, promoConfig] = await Promise.all([
+  const [rawCategories, products, promoConfig, categoryOrder] = await Promise.all([
     getFeaturedCategories(supabase),
-    getFeaturedProducts(supabase),
+    getAllActiveProducts(supabase),
     getPromoConfig(),
+    getCategoryOrder(),
   ]);
+
+  const categories = sortCategoriesByOrder(rawCategories, categoryOrder);
 
   if (products.length === 0) {
     return <EmptyCatalog />;
   }
 
+  // Group products into each category respecting the custom display order
+  const categorySections: { category: Category; products: Product[] }[] = [];
+  const categorizedProductIds = new Set<string>();
+
+  for (const category of categories) {
+    const matching = products.filter((p) => {
+      const catIds =
+        p.category_ids && p.category_ids.length > 0
+          ? p.category_ids
+          : p.category_id
+            ? [p.category_id]
+            : [];
+      return catIds.includes(category.id);
+    });
+
+    if (matching.length > 0) {
+      categorySections.push({ category, products: matching });
+      matching.forEach((p) => categorizedProductIds.add(p.id));
+    }
+  }
+
+  // Any remaining active products not assigned to above categories
+  const uncategorized = products.filter((p) => !categorizedProductIds.has(p.id));
+
   return (
-    <div className="site-container py-14">
-      {/* Category pills */}
+    <div className="site-container py-14 space-y-16 sm:space-y-20">
+      {/* Category anchor pills */}
       {categories.length > 0 && (
-        <section id="categories" aria-labelledby="featured-categories" className="mb-10">
-          <h2 id="featured-categories" className="sr-only">
-            Shop by category
-          </h2>
-          <div className="flex flex-wrap gap-2">
+        <section aria-label="Category quick navigation" className="-mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-display text-xs uppercase tracking-wider text-muted-foreground mr-1">
+              Explore:
+            </span>
             {categories.map((category) => (
-              <Link
+              <a
                 key={category.id}
-                href={`/products?category=${category.slug}`}
-                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                href={`#category-${category.slug}`}
+                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-xs sm:text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
               >
                 {category.name}
-              </Link>
+              </a>
             ))}
           </div>
         </section>
       )}
 
-      {/* Featured products */}
-      <section aria-labelledby="featured-products">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <h2
-            id="featured-products"
-            className="font-display text-2xl font-semibold tracking-tight"
+      {/* Categorized Sections */}
+      {categorySections.map(({ category, products: catProducts }, secIdx) => {
+        const isFirst = secIdx === 0;
+        return (
+          <section
+            key={category.id}
+            id={`category-${category.slug}`}
+            aria-labelledby={`heading-${category.slug}`}
+            className="scroll-mt-24 space-y-6"
           >
-            Featured products
-          </h2>
-          <Link
-            href="/products"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            View all &rarr;
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {products.map((product, idx) => (
-            <Fragment key={product.id}>
-              {promoConfig.enabled && idx === promoConfig.gridPosition && (
-                <PromoAdCard config={promoConfig} />
-              )}
-              <ProductCard product={product} categories={categories} />
-            </Fragment>
-          ))}
-          {promoConfig.enabled && products.length > 0 && products.length <= promoConfig.gridPosition && (
-            <PromoAdCard config={promoConfig} />
-          )}
-        </div>
-      </section>
+            <div className="flex items-end justify-between gap-4 border-b border-border/40 pb-4">
+              <div>
+                <h2
+                  id={`heading-${category.slug}`}
+                  className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
+                >
+                  {category.name}
+                </h2>
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                  {catProducts.length} {catProducts.length === 1 ? "piece" : "pieces"}
+                </p>
+              </div>
+              <Link
+                href={`/products?category=${category.slug}`}
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span>View all</span>
+                <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {catProducts.map((product, idx) => (
+                <Fragment key={product.id}>
+                  {isFirst && promoConfig.enabled && idx === promoConfig.gridPosition && (
+                    <PromoAdCard config={promoConfig} />
+                  )}
+                  <ProductCard product={product} categories={categories} />
+                </Fragment>
+              ))}
+              {isFirst &&
+                promoConfig.enabled &&
+                catProducts.length <= promoConfig.gridPosition && (
+                  <PromoAdCard config={promoConfig} />
+                )}
+            </div>
+          </section>
+        );
+      })}
+
+      {/* Fallback section for uncategorized products, if any */}
+      {uncategorized.length > 0 && (
+        <section aria-labelledby="heading-uncategorized" className="space-y-6">
+          <div className="flex items-end justify-between gap-4 border-b border-border/40 pb-4">
+            <div>
+              <h2
+                id="heading-uncategorized"
+                className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
+              >
+                More Drops
+              </h2>
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                {uncategorized.length} pieces
+              </p>
+            </div>
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span>View all</span>
+              <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {uncategorized.map((product) => (
+              <ProductCard key={product.id} product={product} categories={categories} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
 export function FeaturedCatalogSkeleton() {
   return (
-    <div className="site-container py-14">
+    <div className="site-container py-14 space-y-16">
       {/* Category pills skeleton */}
-      <div className="mb-10 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="h-9 w-24 animate-shimmer rounded-full" />
         ))}
       </div>
-      {/* Products skeleton */}
-      <div className="space-y-5">
-        <div className="h-6 w-48 animate-shimmer rounded-md" />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="aspect-square animate-shimmer rounded-xl" />
-          ))}
+      {/* Sections skeleton */}
+      {Array.from({ length: 2 }).map((_, secIdx) => (
+        <div key={secIdx} className="space-y-6">
+          <div className="flex items-end justify-between border-b border-border/40 pb-4">
+            <div className="h-8 w-44 animate-shimmer rounded-md" />
+            <div className="h-4 w-20 animate-shimmer rounded-md" />
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="aspect-square animate-shimmer rounded-xl" />
+            ))}
+          </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }

@@ -37,40 +37,55 @@ export async function getPromoConfig(): Promise<PromoCardConfig> {
     // Ignore and fall through to file/cache
   }
 
-  // 2. Try in-memory cache
-  if (memoryPromoCache) {
-    return memoryPromoCache;
+  // 2. Try public/promo-card.json (bundled with build / local development)
+  try {
+    const raw = await fs.readFile(PROMO_FILE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as PromoCardConfig;
+    memoryPromoCache = parsed;
+    return parsed;
+  } catch {
+    // Ignore and fall through
   }
 
   // 3. Try /tmp directory (writable in serverless)
   try {
     const raw = await fs.readFile(TMP_PROMO_FILE_PATH, "utf-8");
-    memoryPromoCache = JSON.parse(raw) as PromoCardConfig;
-    return memoryPromoCache;
+    const parsed = JSON.parse(raw) as PromoCardConfig;
+    memoryPromoCache = parsed;
+    return parsed;
   } catch {
     // Ignore and fall through
   }
 
-  // 4. Try public/promo-card.json (bundled with build)
-  try {
-    const raw = await fs.readFile(PROMO_FILE_PATH, "utf-8");
-    memoryPromoCache = JSON.parse(raw) as PromoCardConfig;
-    return memoryPromoCache;
-  } catch {
-    return DEFAULT_PROMO_CONFIG;
-  }
+  // 4. Fallback to memory cache or defaults
+  return memoryPromoCache ?? DEFAULT_PROMO_CONFIG;
 }
 
 export async function savePromoConfig(
   config: PromoCardConfig,
 ): Promise<{ ok: boolean; error?: string }> {
-  let dbSaved = false;
-  let tmpSaved = false;
+  let fileSaved = false;
 
   // Update in-memory cache immediately
   memoryPromoCache = config;
 
-  // 1. Save to Supabase store_settings (primary persistent store across serverless instances)
+  // 1. Save to local public/ file (always works in dev and writable containers)
+  try {
+    await fs.writeFile(PROMO_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
+    fileSaved = true;
+  } catch {
+    // In serverless environments (e.g. AWS Lambda / Vercel), /var/task is read-only (EROFS).
+  }
+
+  // 2. Save to /tmp (always writable on serverless / Vercel lambda)
+  try {
+    await fs.writeFile(TMP_PROMO_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
+    fileSaved = true;
+  } catch (tmpErr) {
+    console.warn("[Promotions] Failed to write to /tmp:", tmpErr);
+  }
+
+  // 3. Save to Supabase store_settings (primary persistent store across serverless instances)
   try {
     const supabase = createServiceClient();
     const { error: dbError } = await supabase
@@ -85,43 +100,26 @@ export async function savePromoConfig(
       );
 
     if (!dbError) {
-      dbSaved = true;
-    } else {
-      console.warn("[Promotions] Supabase store_settings upsert warning:", dbError.message);
+      fileSaved = true;
     }
   } catch (err) {
     console.warn("[Promotions] Supabase connection error:", err);
   }
 
-  // 2. Save to /tmp (always writable on serverless / Vercel lambda)
-  try {
-    await fs.writeFile(TMP_PROMO_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
-    tmpSaved = true;
-  } catch (tmpErr) {
-    console.warn("[Promotions] Failed to write to /tmp:", tmpErr);
-  }
+  // Invalidate storefront and admin paths across both page and layout scopes
+  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin");
+  revalidatePath("/admin/promotions");
 
-  // 3. Attempt local public/ file write (works on local dev; safely ignore EROFS in serverless production)
-  try {
-    await fs.writeFile(PROMO_FILE_PATH, JSON.stringify(config, null, 2), "utf-8");
-  } catch {
-    // In serverless environments (e.g. AWS Lambda / Vercel), /var/task is read-only (EROFS).
-    // As long as Supabase or /tmp has the data, this is safely ignored.
-    console.log("[Promotions] Read-only serverless filesystem detected. Saved to persistent storage.");
-  }
-
-  // If at least DB or /tmp was updated, consider the operation successful
-  if (dbSaved || tmpSaved) {
-    revalidatePath("/");
-    revalidatePath("/products");
-    revalidatePath("/admin");
-    revalidatePath("/admin/promotions");
+  if (fileSaved) {
     return { ok: true };
   }
 
   return {
     ok: false,
-    error: "Failed to persist promotions config. Please check your Supabase connection.",
+    error: "Failed to persist promotions config.",
   };
 }
 

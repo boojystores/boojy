@@ -58,9 +58,10 @@ function friendlyError(
   return error?.message ?? fallback;
 }
 
-/** Categories with live product counts, ordered by name. */
+/** Categories with live product counts, ordered by name (or custom order if provided). */
 export async function listCategoriesWithCounts(
   client: SupabaseClient,
+  order?: string[],
 ): Promise<CategoryWithCount[]> {
   const [categories, products] = await Promise.all([
     client.from("categories").select("id, name, slug").order("name"),
@@ -76,10 +77,17 @@ export async function listCategoriesWithCounts(
     }
   }
 
-  return ((categories.data ?? []) as Category[]).map((category) => ({
+  const rawList = ((categories.data ?? []) as Category[]).map((category) => ({
     ...category,
     productCount: counts.get(category.id) ?? 0,
   }));
+
+  if (order && order.length > 0) {
+    const { sortCategoriesByOrder } = await import("@/features/catalog/lib/category-order");
+    return sortCategoriesByOrder(rawList, order);
+  }
+
+  return rawList;
 }
 
 /** Creates a Category; the slug is derived from the name and kept unique. */

@@ -204,17 +204,17 @@ export function ProductView({
             {availableSizes.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                  <span className="font-display text-sm sm:text-base font-bold uppercase tracking-wider text-foreground">
                     Size: {selectedSize ? (
-                      <span className="font-bold text-foreground font-mono ml-1">
+                      <span className="font-bold text-foreground font-mono ml-1 text-xs">
                         {selectedSize}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground font-normal ml-1">Select your size</span>
+                      <span className="text-muted-foreground font-normal ml-1 font-sans text-xs">Select your size</span>
                     )}
                   </span>
                   {sizeError && (
-                    <span role="alert" className="text-xs font-semibold text-destructive animate-pulse">
+                    <span role="alert" className="text-xs font-semibold text-destructive animate-pulse font-sans">
                       Please select a size
                     </span>
                   )}
@@ -235,7 +235,7 @@ export function ProductView({
                         aria-pressed={isSelected}
                         disabled={outOfStock}
                         className={cn(
-                          "min-w-11 h-11 px-3.5 flex items-center justify-center text-xs font-semibold uppercase tracking-wider transition-all rounded-none border",
+                          "min-w-11 h-11 px-3.5 flex items-center justify-center text-xs font-semibold uppercase tracking-wider transition-all rounded-none border font-sans",
                           isSelected
                             ? "border-foreground bg-foreground text-background font-bold shadow-xs scale-[1.02]"
                             : "border-border bg-background text-foreground hover:border-foreground/60 hover:bg-muted/30",
@@ -252,7 +252,7 @@ export function ProductView({
 
             {/* Line 1: Quantity Stepper */}
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-foreground block mb-2">
+              <span className="font-display text-sm sm:text-base font-bold uppercase tracking-wider text-foreground block mb-2">
                 Quantity
               </span>
               <div className="flex h-11 w-32 items-stretch border border-border bg-background rounded-none">
@@ -287,7 +287,7 @@ export function ProductView({
               disabled={outOfStock}
               className={cn(
                 "w-full h-12 flex items-center justify-center gap-2",
-                "bg-black hover:bg-neutral-900 text-white text-xs sm:text-sm font-bold uppercase tracking-widest transition-colors rounded-none shadow-sm border border-black",
+                "bg-black hover:bg-neutral-900 text-white font-display text-sm sm:text-base font-bold uppercase tracking-wider transition-colors rounded-none shadow-sm border border-black",
                 outOfStock && "opacity-50 cursor-not-allowed",
                 justAdded && "bg-emerald-600 hover:bg-emerald-600 border-emerald-600",
               )}

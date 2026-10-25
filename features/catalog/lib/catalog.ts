@@ -280,6 +280,27 @@ export async function getFeaturedProducts(
 }
 
 /**
+ * Retrieve all active products for the categorized storefront homepage.
+ */
+export async function getAllActiveProducts(client: SupabaseClient): Promise<Product[]> {
+  const { data, error } = await client
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .order("stock_quantity", { ascending: false });
+
+  if (error) return [];
+  return ((data ?? []) as Product[]).map((p) => ({
+    ...p,
+    description: p.description ? cleanProductDescription(p.description) : null,
+    category_ids: extractProductCategories(p),
+    images: extractProductImages(p),
+    sizes: extractProductSizes(p),
+  }));
+}
+
+/**
  * Parse comma-separated or repeated category slugs from the URL query.
  * e.g. "accessories,speed-cubes" -> ["accessories", "speed-cubes"]
  */
