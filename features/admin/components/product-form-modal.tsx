@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
   ImagePlus,
   Loader2,
   Star,
@@ -86,6 +89,8 @@ export function ProductFormModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
+  const [dragOverPhotoIndex, setDragOverPhotoIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
@@ -196,6 +201,54 @@ export function ProductFormModal({
     });
   }
 
+  function handleMovePhoto(fromIndex: number, toIndex: number) {
+    if (toIndex < 0 || toIndex >= photos.length || fromIndex === toIndex) return;
+    setPhotos((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  function handleMoveLeft(index: number) {
+    handleMovePhoto(index, index - 1);
+  }
+
+  function handleMoveRight(index: number) {
+    handleMovePhoto(index, index + 1);
+  }
+
+  function handlePhotoDragStart(e: React.DragEvent, index: number) {
+    e.dataTransfer.setData("text/plain", String(index));
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedPhotoIndex(index);
+  }
+
+  function handlePhotoDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverPhotoIndex !== index) {
+      setDragOverPhotoIndex(index);
+    }
+  }
+
+  function handlePhotoDrop(e: React.DragEvent, targetIndex: number) {
+    e.preventDefault();
+    const sourceIndexRaw = e.dataTransfer.getData("text/plain");
+    const sourceIndex = sourceIndexRaw !== "" ? Number(sourceIndexRaw) : draggedPhotoIndex;
+    if (sourceIndex !== null && !isNaN(sourceIndex) && sourceIndex !== targetIndex) {
+      handleMovePhoto(sourceIndex, targetIndex);
+    }
+    setDraggedPhotoIndex(null);
+    setDragOverPhotoIndex(null);
+  }
+
+  function handlePhotoDragEnd() {
+    setDraggedPhotoIndex(null);
+    setDragOverPhotoIndex(null);
+  }
+
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     setDragging(true);
@@ -252,17 +305,23 @@ export function ProductFormModal({
       formData.set("id", product.id);
     }
 
-    // Append all photos in order
+    // Append all photos in order and serialize the exact image sequence
+    let newIndex = 0;
+    const orderTokens: string[] = [];
     for (const p of photos) {
       if (p.type === "existing") {
         formData.append("existing_images", p.url);
+        orderTokens.push(`existing:${p.url}`);
       } else {
         formData.append("new_images", p.file);
+        orderTokens.push(`new:${newIndex}`);
+        newIndex++;
         if (!formData.has("image")) {
           formData.set("image", p.file);
         }
       }
     }
+    formData.set("image_order", JSON.stringify(orderTokens));
 
     inFlightRef.current = true;
     setSubmitting(true);
@@ -350,59 +409,133 @@ export function ProductFormModal({
                 </span>
               </div>
 
+              {photos.length > 1 && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 bg-muted/40 px-2.5 py-1.5 border border-border/60">
+                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>
+                    Drag photos or click <strong className="text-foreground">◀ ▶</strong> arrows to reorder. The 1st photo is always the storefront cover.
+                  </span>
+                </p>
+              )}
+
               {/* Photos Gallery / Thumbnails Strip */}
               {photos.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 border border-border p-3 bg-muted/20">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 border border-border p-3 bg-muted/20">
                   {photos.map((photo, index) => {
                     const src = photo.type === "existing" ? photo.url : photo.previewUrl;
                     const isCover = index === 0;
+                    const isDraggingThis = draggedPhotoIndex === index;
+                    const isDragOverThis = dragOverPhotoIndex === index && !isDraggingThis;
 
                     return (
                       <div
                         key={photo.id}
+                        draggable
+                        onDragStart={(e) => handlePhotoDragStart(e, index)}
+                        onDragOver={(e) => handlePhotoDragOver(e, index)}
+                        onDrop={(e) => handlePhotoDrop(e, index)}
+                        onDragEnd={handlePhotoDragEnd}
                         className={cn(
-                          "group relative aspect-square overflow-hidden border bg-background flex items-center justify-center",
-                          isCover ? "border-foreground ring-1 ring-foreground" : "border-border",
+                          "group relative aspect-square overflow-hidden border bg-background flex flex-col justify-between cursor-grab active:cursor-grabbing transition-all select-none shadow-xs",
+                          isCover ? "border-foreground ring-2 ring-foreground" : "border-border hover:border-foreground/60",
+                          isDraggingThis && "opacity-30 scale-95",
+                          isDragOverThis && "ring-2 ring-primary border-primary scale-[1.03]",
                         )}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={src}
                           alt={`Product photo ${index + 1}`}
-                          className="h-full w-full object-cover"
+                          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
                         />
 
-                        {/* Cover Badge */}
-                        {isCover ? (
-                          <div className="absolute top-1 left-1 bg-black text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 shadow-xs">
-                            Cover
-                          </div>
-                        ) : (
+                        {/* Top Header Actions (Cover Badge / Make Cover & Remove) */}
+                        <div className="relative z-10 flex items-center justify-between p-1.5 bg-gradient-to-b from-black/60 to-transparent">
+                          {isCover ? (
+                            <div className="bg-black/90 dark:bg-white text-white dark:text-black text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 flex items-center gap-1 shadow-sm">
+                              <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                              Cover (#1)
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMakeCover(index);
+                              }}
+                              title="Make this photo #1 Cover"
+                              className="bg-background/90 hover:bg-background border border-border text-[9px] font-semibold uppercase px-1.5 py-0.5 text-foreground transition-opacity flex items-center gap-1 shadow-xs"
+                            >
+                              <Star className="h-2.5 w-2.5" />
+                              Cover
+                            </button>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() => handleMakeCover(index)}
-                            title="Make this the storefront cover photo"
-                            className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 bg-background/90 hover:bg-background border border-border text-[9px] font-semibold uppercase px-1.5 py-0.5 text-foreground transition-opacity flex items-center gap-0.5 shadow-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemovePhoto(index);
+                            }}
+                            aria-label={`Remove photo ${index + 1}`}
+                            title="Remove photo"
+                            className="bg-background/90 hover:bg-destructive hover:text-white border border-border h-5 w-5 flex items-center justify-center text-foreground transition-all shadow-xs"
                           >
-                            <Star className="h-2.5 w-2.5" />
-                            Cover
+                            <X className="h-3 w-3" />
                           </button>
-                        )}
+                        </div>
 
-                        {/* Remove Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePhoto(index)}
-                          aria-label={`Remove photo ${index + 1}`}
-                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-background/90 hover:bg-destructive hover:text-white border border-border h-5 w-5 flex items-center justify-center text-foreground transition-all shadow-xs"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        {/* Bottom Reordering Bar: Move Left / Position Index / Move Right */}
+                        <div className="relative z-10 flex items-center justify-between border-t border-border/80 bg-background/95 backdrop-blur-xs px-1.5 py-1 text-foreground shadow-xs">
+                          {/* Move Left / Earlier */}
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveLeft(index);
+                            }}
+                            title={index === 0 ? "First in order" : `Move earlier to #${index}`}
+                            aria-label={`Move photo ${index + 1} earlier`}
+                            className={cn(
+                              "h-6 w-6 flex items-center justify-center border transition-colors",
+                              index === 0
+                                ? "opacity-20 border-transparent cursor-not-allowed text-muted-foreground"
+                                : "border-border bg-background hover:bg-muted active:scale-95 text-foreground cursor-pointer"
+                            )}
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
 
-                        {/* Index Number */}
-                        <span className="absolute bottom-1 right-1 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground border border-border/60">
-                          #{index + 1}
-                        </span>
+                          {/* Position Badge & Drag Handle */}
+                          <div
+                            title="Drag to rearrange"
+                            className="flex items-center gap-1 font-mono text-[10px] font-bold text-foreground cursor-grab"
+                          >
+                            <GripVertical className="h-3 w-3 text-muted-foreground" />
+                            <span>#{index + 1}</span>
+                          </div>
+
+                          {/* Move Right / Later */}
+                          <button
+                            type="button"
+                            disabled={index === photos.length - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveRight(index);
+                            }}
+                            title={index === photos.length - 1 ? "Last in order" : `Move later to #${index + 2}`}
+                            aria-label={`Move photo ${index + 1} later`}
+                            className={cn(
+                              "h-6 w-6 flex items-center justify-center border transition-colors",
+                              index === photos.length - 1
+                                ? "opacity-20 border-transparent cursor-not-allowed text-muted-foreground"
+                                : "border-border bg-background hover:bg-muted active:scale-95 text-foreground cursor-pointer"
+                            )}
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

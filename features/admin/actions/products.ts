@@ -32,7 +32,12 @@ import {
  */
 function parseProductForm(
   formData: FormData,
-): { input?: ProductInput; existingImages?: string[]; error?: string } {
+): {
+  input?: ProductInput;
+  existingImages?: string[];
+  imageOrder?: string[];
+  error?: string;
+} {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const priceRaw = String(formData.get("price") ?? "").trim();
@@ -61,6 +66,19 @@ function parseProductForm(
     .map(String)
     .map((s) => s.trim())
     .filter(Boolean);
+
+  const rawImageOrder = formData.get("image_order");
+  let imageOrder: string[] | undefined = undefined;
+  if (typeof rawImageOrder === "string" && rawImageOrder.trim()) {
+    try {
+      const parsed = JSON.parse(rawImageOrder);
+      if (Array.isArray(parsed)) {
+        imageOrder = parsed.map(String);
+      }
+    } catch {
+      // ignore parse error
+    }
+  }
 
   if (!name) return { error: "Product name is required." };
   // Reject blank fields explicitly — Number("") is 0, which would silently
@@ -91,6 +109,7 @@ function parseProductForm(
       image_url: "",
     },
     existingImages,
+    imageOrder,
   };
 }
 
@@ -122,7 +141,7 @@ export async function updateProductAction(
 ): Promise<ProductMutationResult> {
   const supabase = await createClient();
   const id = String(formData.get("id") ?? "");
-  const { input, existingImages, error } = parseProductForm(formData);
+  const { input, existingImages, imageOrder, error } = parseProductForm(formData);
   if (error || !input || !id) {
     return { ok: false, message: error ?? "Invalid form data." };
   }
@@ -136,7 +155,7 @@ export async function updateProductAction(
   const filesParam = rawFiles.length > 0 ? rawFiles : null;
   const retainedParam = formData.has("existing_images") ? existingImages : undefined;
 
-  return updateProductWithImage(supabase, id, input, filesParam, retainedParam);
+  return updateProductWithImage(supabase, id, input, filesParam, retainedParam, imageOrder);
 }
 
 export async function deleteProductAction(

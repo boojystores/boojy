@@ -291,6 +291,31 @@ describe("updateProductWithImage (Cloudinary)", () => {
     // Old un-retained Cloudinary image removed
     expect(mockCloudinaryStorage.has("boojy/products/old")).toBe(false);
   });
+
+  it("strictly respects custom imageOrder sequence (allowing new files to be 1st/cover or interleaved)", async () => {
+    const supabase = createMockSupabase({ products: [row] });
+    const newFile = await makePng();
+
+    // Custom order: newly uploaded file is 1st (Cover), then existing keep-2, then existing keep-1
+    const result = await updateProductWithImage(
+      toClient(supabase),
+      "p1",
+      input,
+      [newFile],
+      ["https://picsum.photos/keep-1.jpg", "https://picsum.photos/keep-2.jpg"],
+      ["new:0", "existing:https://picsum.photos/keep-2.jpg", "existing:https://picsum.photos/keep-1.jpg"],
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // The newly uploaded file became the #1 Cover photo
+    expect(result.product.image_url).toMatch(/cloudinary/);
+    expect(result.product.images).toHaveLength(3);
+    expect(result.product.images[0]).toBe(result.product.image_url);
+    expect(result.product.images[1]).toBe("https://picsum.photos/keep-2.jpg");
+    expect(result.product.images[2]).toBe("https://picsum.photos/keep-1.jpg");
+  });
 });
 
 describe("deleteProductWithImage (Cloudinary)", () => {

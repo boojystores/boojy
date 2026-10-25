@@ -229,6 +229,7 @@ export async function updateProductWithImage(
   input: ProductInput,
   filesOrNewFiles: File | File[] | null,
   retainedImages?: string[],
+  imageOrder?: string[],
 ): Promise<ProductMutationResult> {
   const { data: current } = await client
     .from("products")
@@ -256,7 +257,23 @@ export async function updateProductWithImage(
 
   // Determine final image list
   let finalImages: string[];
-  if (retainedImages !== undefined) {
+  if (imageOrder && imageOrder.length > 0) {
+    let nextNewIndex = 0;
+    finalImages = imageOrder
+      .map((token) => {
+        if (token.startsWith("existing:")) {
+          return token.slice("existing:".length);
+        }
+        if (token.startsWith("new:")) {
+          const indexStr = token.slice("new:".length);
+          const parsedIndex = parseInt(indexStr, 10);
+          const idx = isNaN(parsedIndex) ? nextNewIndex++ : parsedIndex;
+          return newUploadedUrls[idx];
+        }
+        return token;
+      })
+      .filter((url): url is string => typeof url === "string" && url.length > 0);
+  } else if (retainedImages !== undefined) {
     finalImages = [...retainedImages, ...newUploadedUrls];
   } else if (newUploadedUrls.length > 0) {
     // Single replacement without explicit retained list
