@@ -5,7 +5,7 @@ import { PaymentResultView } from "@/features/checkout/components/payment-result
 
 export const metadata: Metadata = {
   title: "Payment Status — Boojy",
-  description: "Verification of your Boojy order payment via Bachs.io.",
+  description: "Verification of your Boojy order payment.",
 };
 
 export default async function CheckoutResultPage({

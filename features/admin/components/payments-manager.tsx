@@ -422,7 +422,7 @@ export function PaymentsManager({ initialMethods }: PaymentsManagerProps) {
                 <label className="text-xs font-medium text-foreground">Badge (optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Automated Gateway, Instant, Fast"
+                  placeholder="e.g. Instant, Popular, Fast"
                   value={editBadge}
                   onChange={(e) => setEditBadge(e.target.value)}
                   className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

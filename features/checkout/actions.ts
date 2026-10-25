@@ -109,7 +109,7 @@ export async function submitCheckout(input: {
     return {
       ok: false,
       code: "VALIDATION",
-      message: "Online payment via Bachs is not currently configured. Please select another payment method or contact support.",
+      message: "Online card & bank payment is not currently configured. Please select another payment method or contact support.",
       field: "paymentMethod",
     };
   }
@@ -148,12 +148,9 @@ export async function submitCheckout(input: {
   if (details.paymentMethod === "bachs") {
     try {
       const headersList = await headers();
-      const host = headersList.get("x-forwarded-host") || headersList.get("host") || "localhost:3000";
-      const proto = headersList.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
-      const isLocalHost = host.includes("localhost") || host.includes("127.0.0.1");
-      const siteUrl = isLocalHost
-        ? `${proto}://${host}`
-        : (process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`);
+      const host = headersList.get("x-forwarded-host") || headersList.get("host");
+      const proto = headersList.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
+      const siteUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
 
       const session = await createBachsCheckoutSession({
         orderId: orderResult.orderId,
@@ -197,7 +194,7 @@ export async function submitCheckout(input: {
       return {
         ok: false,
         code: "UNKNOWN",
-        message: `Unable to initiate secure checkout with Bachs${detail}. Please try again or select another payment method.`,
+        message: `Unable to initiate secure payment${detail}. Please try again or select another payment method.`,
       };
     }
   }
@@ -219,6 +216,7 @@ export type OrderPaymentStatusResult = {
   customerEmail?: string;
   deliveryAddress?: string;
   items?: { name: string; quantity: number; unitPrice: number }[];
+  checkoutUrl?: string;
   message?: string;
 };
 
@@ -267,6 +265,8 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
 
   // Active reconciliation: if the order is still pending with Bachs, check Bachs directly
   // so the return page can confirm payment even if the webhook was delayed or blocked.
+  let reconciledCheckoutUrl: string | undefined;
+
   if (
     order.payment_status === "pending" &&
     order.payment_provider === "bachs" &&
@@ -276,7 +276,30 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
     try {
       const bachs = getBachsClient();
       const session = await bachs.checkoutSessions.get(order.bachs_checkout_id);
-      if (session.payment_status === "succeeded" || session.status === "completed") {
+      reconciledCheckoutUrl = (session as { checkout_url?: string }).checkout_url || undefined;
+
+      const isSuccess =
+        session.payment_status === "succeeded" ||
+        session.payment_status === "accepted" ||
+        session.payment_status === "paid" ||
+        session.status === "completed" ||
+        session.status === "paid" ||
+        session.status === "succeeded" ||
+        session.charge?.status === "succeeded" ||
+        session.charge?.status === "accepted" ||
+        session.charge?.status === "paid";
+
+      const isFailedOrCancelled =
+        session.payment_status === "failed" ||
+        session.payment_status === "cancelled" ||
+        session.payment_status === "expired" ||
+        session.status === "cancelled" ||
+        session.status === "expired" ||
+        session.status === "failed" ||
+        session.charge?.status === "failed" ||
+        session.charge?.status === "cancelled";
+
+      if (isSuccess) {
         const charge = session.charge;
         const chargeId = charge?.payment_id || session.checkout_id;
         const amountPaid = charge?.amount_paid ? parseFloat(charge.amount_paid) : Number(session.amount);
@@ -298,6 +321,14 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
         order.payment_status = "paid";
         order.status = "processing";
         order.paid_at = charge?.completed_at || new Date().toISOString();
+      } else if (isFailedOrCancelled) {
+        await serviceClient.rpc("handle_bachs_payment_failure", {
+          p_order_id: order.id,
+          p_reason: `Bachs session ${session.status} (${session.payment_status || "failed"})`,
+          p_restore_stock: true,
+        });
+        order.payment_status = "failed";
+        order.status = "cancelled";
       }
     } catch (syncErr) {
       console.warn("[Bachs Session Sync Warn]:", syncErr);
@@ -330,6 +361,7 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
     customerName: customer?.full_name,
     customerEmail: customer?.email,
     items,
+    checkoutUrl: reconciledCheckoutUrl,
   };
 }
 
@@ -374,9 +406,9 @@ export async function retryBachsPayment(
 
   try {
     const headersList = await headers();
-    const host = headersList.get("x-forwarded-host") || headersList.get("host") || "localhost:3000";
-    const proto = headersList.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
+    const host = headersList.get("x-forwarded-host") || headersList.get("host");
+    const proto = headersList.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
+    const siteUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
 
     const session = await createBachsCheckoutSession({
       orderId: order.id,

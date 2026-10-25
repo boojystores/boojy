@@ -45,7 +45,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   ewallet: "E-wallet",
   bank_transfer: "Bank transfer",
-  bachs: "Bachs.io (Online)",
+  bachs: "Card & Bank Transfer",
 };
 
 export const LIFECYCLE: Exclude<OrderStatus, "cancelled">[] = [

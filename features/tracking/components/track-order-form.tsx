@@ -218,7 +218,7 @@ export function TrackOrderForm() {
                 <span>Payment</span>
                 <span className="font-medium text-foreground">
                   {result.paymentStatus === "paid"
-                    ? "Paid (Bachs.io)"
+                    ? "Paid"
                     : result.paymentStatus === "failed"
                       ? "Payment Failed"
                       : "Pending Confirmation"}

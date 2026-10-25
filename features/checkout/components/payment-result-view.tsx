@@ -14,6 +14,7 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BoojyPreloader } from "@/components/boojy-preloader";
 import { priceFormatter } from "@/lib/currency";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import type { PaymentMethod } from "@/features/checkout/lib/checkout";
@@ -125,16 +126,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
   if (loading) {
     return (
       <div className="site-container flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
-        <div className="relative flex h-16 w-16 items-center justify-center">
-          <div className="absolute h-full w-full animate-ping rounded-full bg-primary/20" />
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-        <h2 className="mt-6 text-xl font-semibold tracking-tight text-foreground">
-          Confirming Payment...
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Securing cryptographic verification with Bachs.io. Please do not refresh.
-        </p>
+        <BoojyPreloader size="lg" message="Confirming Payment…" />
       </div>
     );
   }
@@ -181,7 +173,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
               Thank You for Your Order!
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your payment has been successfully processed and verified by Bachs.io.
+              Your payment has been successfully processed and verified.
             </p>
 
             <div className="mt-8 rounded-xl border border-border/80 bg-muted/40 p-5 text-left text-sm">
@@ -198,8 +190,8 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
                 </span>
               </div>
               <div className="flex justify-between border-b border-border/60 py-3">
-                <span className="text-muted-foreground">Payment Gateway</span>
-                <span className="font-medium text-foreground">Bachs.io Secure Checkout</span>
+                <span className="text-muted-foreground">Payment Method</span>
+                <span className="font-medium text-foreground">Card & Bank Transfer</span>
               </div>
               {orderData.deliveryAddress ? (
                 <div className="flex justify-between border-b border-border/60 py-3">
@@ -336,18 +328,18 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
         {/* Pending / In-Flight Verification State */}
         {isPending && (
           <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 ring-8 ring-blue-500/5">
-              <Clock className="h-9 w-9 animate-pulse" />
+            <div className="mb-6 flex justify-center">
+              <BoojyPreloader size="md" />
             </div>
 
-            <span className="mt-5 inline-block text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            <span className="inline-block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Payment Awaiting Confirmation
             </span>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Processing Payment
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              We have received your request and are awaiting final webhook confirmation from Bachs.io.
+              We are checking for your payment confirmation. If you haven't completed your payment yet, tap below to continue.
             </p>
 
             <div className="mt-8 rounded-xl border border-border/80 bg-muted/40 p-5 text-left text-sm">
@@ -366,17 +358,42 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              {orderData.checkoutUrl ? (
+                <Button asChild size="lg" className="w-full sm:w-auto font-display uppercase tracking-wider">
+                  <a href={orderData.checkoutUrl}>
+                    Continue to Payment <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  size="lg"
+                  className="w-full sm:w-auto font-display uppercase tracking-wider"
+                >
+                  {retrying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing Payment…
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="mr-2 h-4 w-4" /> Complete Payment
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 onClick={() => {
                   setLoading(true);
                   fetchStatus();
                 }}
                 variant="outline"
-                className="w-full sm:w-auto"
+                size="lg"
+                className="w-full sm:w-auto font-display uppercase tracking-wider"
               >
                 <RotateCcw className="mr-2 h-4 w-4" /> Refresh Status
               </Button>
-              <Button asChild variant="default" className="w-full sm:w-auto">
+              <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
                 <Link href="/">Back to Storefront</Link>
               </Button>
             </div>

@@ -23,15 +23,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { BoojyPreloader } from "@/components/boojy-preloader";
 import { cn } from "@/lib/utils";
 import { priceFormatter } from "@/lib/currency";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
-  { value: "bachs", label: "Cards & Bank Transfer (Bachs.io)", hint: "Pay securely with Debit Card or Bank Transfer via Bachs." },
-  { value: "ewallet", label: "Instant Transfer / E-wallet", hint: "Bank transfer, OPay, PalmPay, or card." },
-  { value: "bank_transfer", label: "Direct Bank Transfer", hint: "Transfer directly to store account — details by email." },
+  { value: "bachs", label: "Card & Bank Transfer", hint: "Pay securely with Debit Card or Bank Transfer." },
+  { value: "ewallet", label: "Instant Transfer / E-Wallet", hint: "Pay with OPay, PalmPay, or mobile wallet." },
+  { value: "bank_transfer", label: "Direct Bank Transfer", hint: "Transfer directly to store account — details sent via email." },
 ];
 
 type FormFields = {
@@ -220,15 +221,11 @@ export function CheckoutView({
     }
   }
 
-  // Not hydrated yet: show a skeleton so the badge and totals never flash wrong.
+  // Not hydrated yet: show branded logo preloader
   if (!hasHydrated) {
     return (
-      <div className="site-container py-10">
-        <div className="h-8 w-40 animate-shimmer rounded-md" />
-        <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
-          <div className="h-96 animate-shimmer rounded-xl" />
-          <div className="h-64 animate-shimmer rounded-xl" />
-        </div>
+      <div className="flex min-h-[60vh] w-full items-center justify-center">
+        <BoojyPreloader size="md" message="Loading checkout…" />
       </div>
     );
   }
@@ -238,9 +235,8 @@ export function CheckoutView({
     return (
       <div className="site-container py-16 sm:py-24">
         <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
-          <div className="relative mx-auto mb-6 flex h-16 w-16 items-center justify-center">
-            <div className="absolute inset-0 h-full w-full animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-            <ShieldCheck className="h-7 w-7 text-primary" />
+          <div className="mb-6 flex justify-center">
+            <BoojyPreloader size="lg" />
           </div>
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -252,7 +248,7 @@ export function CheckoutView({
           </h2>
 
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Connecting you securely to Bachs.io to complete your payment of{" "}
+            Connecting you securely to complete your payment of{" "}
             <span className="font-semibold text-foreground">
               {priceFormatter.format(redirectSession.totalAmount)}
             </span>.
@@ -276,7 +272,12 @@ export function CheckoutView({
   }
 
   return (
-    <div className="site-container py-10">
+    <div className="site-container py-10 relative">
+      {submitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
+          <BoojyPreloader size="lg" message="Connecting to secure payment…" />
+        </div>
+      )}
       <Link
         href="/cart"
         className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -452,7 +453,7 @@ export function CheckoutView({
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {fields.paymentMethod === "bachs" ? "Connecting to Bachs…" : "Placing order…"}
+                  {fields.paymentMethod === "bachs" ? "Connecting to Payment…" : "Placing order…"}
                 </>
               ) : (
                 fields.paymentMethod === "bachs"

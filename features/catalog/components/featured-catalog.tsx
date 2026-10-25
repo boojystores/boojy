@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
@@ -89,25 +88,13 @@ export async function FeaturedCatalog() {
             aria-labelledby={`heading-${category.slug}`}
             className="scroll-mt-24 space-y-6"
           >
-            <div className="flex items-end justify-between gap-4 border-b border-border/40 pb-4">
-              <div>
-                <h2
-                  id={`heading-${category.slug}`}
-                  className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
-                >
-                  {category.name}
-                </h2>
-                <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                  {catProducts.length} {catProducts.length === 1 ? "piece" : "pieces"}
-                </p>
-              </div>
-              <Link
-                href={`/products?category=${category.slug}`}
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            <div className="border-b border-border/40 pb-4">
+              <h2
+                id={`heading-${category.slug}`}
+                className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
               >
-                <span>View all</span>
-                <span aria-hidden="true">&rarr;</span>
-              </Link>
+                {category.name}
+              </h2>
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -132,25 +119,13 @@ export async function FeaturedCatalog() {
       {/* Fallback section for uncategorized products, if any */}
       {uncategorized.length > 0 && (
         <section aria-labelledby="heading-uncategorized" className="space-y-6">
-          <div className="flex items-end justify-between gap-4 border-b border-border/40 pb-4">
-            <div>
-              <h2
-                id="heading-uncategorized"
-                className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
-              >
-                More Drops
-              </h2>
-              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                {uncategorized.length} pieces
-              </p>
-            </div>
-            <Link
-              href="/products"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          <div className="border-b border-border/40 pb-4">
+            <h2
+              id="heading-uncategorized"
+              className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-tight"
             >
-              <span>View all</span>
-              <span aria-hidden="true">&rarr;</span>
-            </Link>
+              More Drops
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {uncategorized.map((product) => (
@@ -175,9 +150,8 @@ export function FeaturedCatalogSkeleton() {
       {/* Sections skeleton */}
       {Array.from({ length: 2 }).map((_, secIdx) => (
         <div key={secIdx} className="space-y-6">
-          <div className="flex items-end justify-between border-b border-border/40 pb-4">
+          <div className="border-b border-border/40 pb-4">
             <div className="h-8 w-44 animate-shimmer rounded-md" />
-            <div className="h-4 w-20 animate-shimmer rounded-md" />
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (

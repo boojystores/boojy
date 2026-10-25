@@ -3,9 +3,9 @@ import type { PaymentMethod } from "@/features/checkout/lib/checkout";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
-  ewallet: "E-wallet",
-  bank_transfer: "Bank transfer",
-  bachs: "Bachs.io",
+  ewallet: "Instant Transfer / E-Wallet",
+  bank_transfer: "Direct Bank Transfer",
+  bachs: "Card & Bank Transfer",
 };
 
 const styles = StyleSheet.create({
