@@ -104,7 +104,7 @@
   }
 
   html {
-    @apply overflow-x-hidden;
+    overflow-x: clip;
     scrollbar-gutter: stable;
     /* Spaces between text characters and between words for clear readability */
     letter-spacing: 0.05em;
@@ -112,7 +112,8 @@
   }
 
   body {
-    @apply bg-background text-foreground overflow-x-hidden w-full max-w-full;
+    @apply bg-background text-foreground w-full max-w-full;
+    overflow-x: clip;
     letter-spacing: 0.05em;
     word-spacing: 0.35em;
   }
