@@ -107,7 +107,11 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
     try {
       const res = await retryBachsPayment(orderId);
       if (res.ok && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        try {
+          window.location.assign(res.checkoutUrl);
+        } catch {
+          window.location.href = res.checkoutUrl;
+        }
       } else {
         alert(res.message || "Failed to restart payment session.");
         setRetrying(false);

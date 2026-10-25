@@ -100,7 +100,11 @@ export function CheckoutView({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CheckoutActionResponse | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [redirectSession, setRedirectSession] = useState<{
+    checkoutUrl: string;
+    orderNumber: string;
+    totalAmount: number;
+  } | null>(null);
   // Snapshot of what was ordered, captured before the cart is cleared.
   const [confirmation, setConfirmation] = useState<{
     orderNumber: string;
@@ -171,8 +175,22 @@ export function CheckoutView({
 
       if (response.ok) {
         if (response.checkoutUrl) {
-          clearCart(); // Cart is converted to an active checkout session
-          window.location.href = response.checkoutUrl;
+          // Immediately set redirecting state so customer sees clear feedback
+          setRedirectSession({
+            checkoutUrl: response.checkoutUrl,
+            orderNumber: response.orderNumber,
+            totalAmount: response.totalAmount,
+          });
+
+          // Clear cart so session is consumed
+          clearCart();
+
+          // Reliable cross-browser navigation for iOS Safari & Android WebViews
+          try {
+            window.location.assign(response.checkoutUrl);
+          } catch {
+            window.location.href = response.checkoutUrl;
+          }
           return;
         }
 
@@ -210,6 +228,48 @@ export function CheckoutView({
         <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
           <div className="h-96 animate-shimmer rounded-xl" />
           <div className="h-64 animate-shimmer rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  // Dedicated gateway redirect screen (crucial for iOS Safari / Mobile WebKit)
+  if (redirectSession) {
+    return (
+      <div className="site-container py-16 sm:py-24">
+        <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
+          <div className="relative mx-auto mb-6 flex h-16 w-16 items-center justify-center">
+            <div className="absolute inset-0 h-full w-full animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+            <ShieldCheck className="h-7 w-7 text-primary" />
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Order Created · {redirectSession.orderNumber}
+          </span>
+
+          <h2 className="mt-4 font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">
+            Redirecting to Payment…
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            Connecting you securely to Bachs.io to complete your payment of{" "}
+            <span className="font-semibold text-foreground">
+              {priceFormatter.format(redirectSession.totalAmount)}
+            </span>.
+          </p>
+
+          <div className="mt-8 space-y-3">
+            <a
+              href={redirectSession.checkoutUrl}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span>Tap here to Pay Now</span>
+              <span aria-hidden="true">&rarr;</span>
+            </a>
+            <p className="text-xs text-muted-foreground">
+              If your device does not redirect automatically within a few seconds, tap the button above to proceed to the payment gateway.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -384,52 +444,22 @@ export function CheckoutView({
             <ErrorBanner result={result} onDismiss={() => setResult(null)} />
 
             <Button
-              type="button"
+              type="submit"
               size="lg"
               disabled={submitting || unavailableCount > 0 || availablePaymentMethods.length === 0}
-              className="w-full sm:w-auto"
-              onClick={() => {
-                // Validate fields before opening confirmation modal
-                const errors: Partial<Record<keyof FormFields, string>> = {};
-                if (!fields.fullName.trim()) errors.fullName = "Full name is required.";
-                if (!EMAIL_RE.test(fields.email.trim())) errors.email = "Enter a valid email address.";
-                if (!fields.contactNumber.trim()) errors.contactNumber = "Contact number is required.";
-                if (!fields.deliveryAddress.trim()) errors.deliveryAddress = "Delivery address is required.";
-                if (Object.keys(errors).length > 0) {
-                  setFieldErrors(errors);
-                  return;
-                }
-                setConfirmOpen(true);
-              }}
+              className="w-full sm:w-auto font-display text-sm font-bold uppercase tracking-wider"
             >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Placing order…
+                  {fields.paymentMethod === "bachs" ? "Connecting to Bachs…" : "Placing order…"}
                 </>
               ) : (
-                `Place order · ${priceFormatter.format(subtotal)}`
+                fields.paymentMethod === "bachs"
+                  ? `Proceed to Payment · ${priceFormatter.format(subtotal)}`
+                  : `Place order · ${priceFormatter.format(subtotal)}`
               )}
             </Button>
-
-            {confirmOpen && (
-              <ConfirmModal
-                title="Place order?"
-                message={`You're about to place an order for ${priceFormatter.format(subtotal)} (${count} ${count === 1 ? "item" : "items"}). This will confirm your items and deduct stock.`}
-                confirmLabel="Place order"
-                busy={submitting}
-                onConfirm={() => {
-                  setConfirmOpen(false);
-                  // Trigger the actual form submission
-                  const form = document.querySelector("form");
-                  if (form) {
-                    const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
-                    form.dispatchEvent(submitEvent);
-                  }
-                }}
-                onCancel={() => setConfirmOpen(false)}
-              />
-            )}
             {unavailableCount > 0 && (
               <p className="mt-3 text-sm font-medium text-destructive">
                 Some items are no longer available —{" "}
