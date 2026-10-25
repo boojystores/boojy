@@ -14,6 +14,7 @@ import { ProductCard } from "@/features/catalog/components/product-card";
 import { PromoAdCard } from "@/features/catalog/components/promo-ad-card";
 import { getPromoConfig } from "@/features/admin/actions/promotions";
 import { CatalogToolbar } from "@/features/catalog/components/catalog-toolbar";
+import { StickyCatalogToolbar } from "@/features/catalog/components/sticky-catalog-toolbar";
 
 const PAGE_SIZE = 12;
 
@@ -177,9 +178,9 @@ function CatalogFrame({
 
       {/* Split toolbar bar with top/bottom border dividers running edge-to-edge */}
       {toolbar && (
-        <div className="w-full max-w-full border-b border-border bg-background overflow-hidden">
+        <StickyCatalogToolbar>
           <CatalogToolbar categories={categories} totalCount={totalCount} />
-        </div>
+        </StickyCatalogToolbar>
       )}
 
       {/* Main product catalog grid or empty state */}

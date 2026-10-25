@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2,
+  BadgeCheck,
   XCircle,
   Clock,
   ArrowRight,
@@ -166,11 +166,11 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
         {/* Paid / Confirmed State */}
         {isPaid && (
           <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 ring-8 ring-emerald-500/5">
-              <CheckCircle2 className="h-9 w-9" />
+            <div className="mx-auto flex items-center justify-center text-foreground">
+              <BadgeCheck className="h-16 w-16 stroke-[1.6]" />
             </div>
 
-            <span className="mt-5 inline-block text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span className="mt-4 inline-block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Payment Verified
             </span>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -233,34 +233,37 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
               )}
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button
-                type="button"
-                size="lg"
-                onClick={handleDownloadReceipt}
-                disabled={downloading}
-                className="w-full sm:w-auto"
-              >
-                {downloading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Receipt…
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" /> Download Receipt
-                  </>
-                )}
-              </Button>
-              {orderData.orderNumber && orderData.customerEmail ? (
-                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                  <Link
-                    href={`/track?order=${encodeURIComponent(orderData.orderNumber)}&email=${encodeURIComponent(orderData.customerEmail)}`}
-                  >
-                    Track Order <ArrowRight className="ml-1.5 h-4 w-4" />
-                  </Link>
+            <div className="mt-8 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={handleDownloadReceipt}
+                  disabled={downloading}
+                  className="w-full"
+                >
+                  {downloading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Receipt…
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" /> Download Receipt
+                    </>
+                  )}
                 </Button>
-              ) : null}
-              <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
+                {orderData.orderNumber && orderData.customerEmail ? (
+                  <Button asChild variant="outline" size="lg" className="w-full">
+                    <Link
+                      href={`/track?order=${encodeURIComponent(orderData.orderNumber)}&email=${encodeURIComponent(orderData.customerEmail)}`}
+                    >
+                      Track Order <ArrowRight className="ml-1.5 h-4 w-4" />
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
+
+              <Button asChild variant="ghost" size="lg" className="w-full text-muted-foreground hover:text-foreground">
                 <Link href="/">
                   <ShoppingBag className="mr-1.5 h-4 w-4" /> Continue Shopping
                 </Link>
