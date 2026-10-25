@@ -23,7 +23,7 @@ import {
  * function, which re-checks live stock and rejects with per-item detail.
  */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const PAYMENT_METHODS: PaymentMethod[] = ["ewallet", "bank_transfer", "bachs"];
 
@@ -53,7 +53,7 @@ export async function submitCheckout(input: {
     return {
       ok: false,
       code: "VALIDATION",
-      message: "Enter a valid email address.",
+      message: "Enter a valid email address with a domain (e.g. name@example.com).",
       field: "email",
     };
   }
@@ -67,6 +67,35 @@ export async function submitCheckout(input: {
       message: "Contact number is required.",
       field: "contactNumber",
     };
+  }
+  const phoneTrimmed = details.contactNumber.trim();
+  if (/[a-zA-Z]/.test(phoneTrimmed) || !/^[0-9+\s\-()]+$/.test(phoneTrimmed)) {
+    return {
+      ok: false,
+      code: "VALIDATION",
+      message: "Contact number must be numeric (e.g. 08012345678). Letters are not allowed.",
+      field: "contactNumber",
+    };
+  }
+  const digits = phoneTrimmed.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) {
+    return {
+      ok: false,
+      code: "VALIDATION",
+      message: "Contact number must be a valid phone number (10 to 15 digits).",
+      field: "contactNumber",
+    };
+  }
+  if (details.recipientPhone) {
+    const recipientPhoneTrimmed = details.recipientPhone.trim();
+    if (/[a-zA-Z]/.test(recipientPhoneTrimmed) || !/^[0-9+\s\-()]+$/.test(recipientPhoneTrimmed)) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: "Delivery phone number must be numeric. Letters are not allowed.",
+        field: "contactNumber",
+      };
+    }
   }
   if (
     typeof details.deliveryAddress !== "string" ||
@@ -194,7 +223,11 @@ export async function submitCheckout(input: {
       state_name: details.stateName || null,
       lga_name: details.lgaName || null,
       city_name: details.cityName || null,
-      street_address: details.streetAddress || details.deliveryAddress,
+      street_address: details.streetAddress
+        ? details.landmark
+          ? `${details.streetAddress} (Landmark: ${details.landmark})`
+          : details.streetAddress
+        : details.deliveryAddress,
       delivery_instructions: details.notes || null,
       shipping_fee_kobo: verifiedShippingFeeKobo,
       shipping_fee: verifiedShippingFeeNaira,

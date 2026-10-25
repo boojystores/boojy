@@ -31,7 +31,7 @@ import { BoojyPreloader } from "@/components/boojy-preloader";
 import { cn } from "@/lib/utils";
 import { priceFormatter } from "@/lib/currency";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail, isValidPhoneNumber, sanitizePhoneInput } from "@/features/checkout/lib/validation";
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
   { value: "bachs", label: "Card & Bank Transfer", hint: "Pay securely with Debit Card or Bank Transfer." },
@@ -64,6 +64,7 @@ const EMPTY_ADDRESS: AddressData = {
   deliveryZoneId: null,
   cityName: "",
   streetAddress: "",
+  landmark: "",
   recipientName: "",
   recipientPhone: "",
   deliveryInstructions: "",
@@ -224,12 +225,17 @@ export function CheckoutView({
       addrErrors.recipientName = "Recipient full name is required.";
       errors.fullName = "Full name is required.";
     }
-    if (!EMAIL_RE.test(fields.email.trim())) {
-      errors.email = "Enter a valid email address.";
+    if (!fields.email.trim()) {
+      errors.email = "Email address is required.";
+    } else if (!isValidEmail(fields.email)) {
+      errors.email = "Enter a valid email address with a domain (e.g. name@example.com).";
     }
     if (!effectivePhone) {
       addrErrors.recipientPhone = "Contact phone number is required.";
       errors.contactNumber = "Contact number is required.";
+    } else if (!isValidPhoneNumber(effectivePhone)) {
+      addrErrors.recipientPhone = "Phone number must be numeric (e.g. 08012345678). Letters are not allowed.";
+      errors.contactNumber = "Phone number must be numeric (e.g. 08012345678). Letters are not allowed.";
     }
     if (!address.stateId) {
       addrErrors.stateId = "Please select your state.";
@@ -272,7 +278,11 @@ export function CheckoutView({
         : `Sizes: ${sizeLines}`
       : userNotes || undefined;
 
-    const formattedDeliveryAddress = `${address.streetAddress.trim()}, ${
+    const streetWithLandmark = address.landmark?.trim()
+      ? `${address.streetAddress.trim()} (Landmark: ${address.landmark.trim()})`
+      : address.streetAddress.trim();
+
+    const formattedDeliveryAddress = `${streetWithLandmark}, ${
       address.cityName ? address.cityName.trim() + ", " : ""
     }${address.lgaName || address.lgaId}, ${address.stateName || address.stateId}`;
 
@@ -296,6 +306,7 @@ export function CheckoutView({
           deliveryZoneId: address.deliveryZoneId,
           cityName: address.cityName,
           streetAddress: address.streetAddress.trim(),
+          landmark: address.landmark?.trim() || undefined,
           shippingMethodId: selectedOption.methodId,
           deliveryInstructions: userNotes || undefined,
         },

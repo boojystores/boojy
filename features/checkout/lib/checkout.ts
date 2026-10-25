@@ -37,6 +37,7 @@ export type CheckoutDetails = {
   shippingMethodId?: string;
   shippingFeeKobo?: number;
   deliveryInstructions?: string;
+  landmark?: string;
 };
 
 export type CheckoutLineInput = {

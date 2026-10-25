@@ -16,6 +16,7 @@ export interface AddressData {
   deliveryZoneId?: string | null;
   cityName: string;
   streetAddress: string;
+  landmark?: string;
   recipientName: string;
   recipientPhone: string;
   deliveryInstructions: string;
@@ -167,8 +168,13 @@ export function NigeriaAddressFields({
           <Input
             id="recipientPhone"
             type="tel"
+            inputMode="tel"
             value={value.recipientPhone}
-            onChange={(e) => onChange({ ...value, recipientPhone: e.target.value })}
+            onChange={(e) => {
+              // Only allow digits and phone formatting symbols (+, spaces, hyphens) - strip all letters immediately
+              const numericOnly = e.target.value.replace(/[^0-9+\s\-()]/g, "");
+              onChange({ ...value, recipientPhone: numericOnly });
+            }}
             placeholder="080 1234 5678"
             className="mt-1.5"
             aria-invalid={Boolean(errors.recipientPhone)}
@@ -371,13 +377,27 @@ export function NigeriaAddressFields({
           rows={2}
           value={value.streetAddress}
           onChange={(e) => onChange({ ...value, streetAddress: e.target.value })}
-          placeholder="House / Apartment / Plot number, Street name, Landmark"
+          placeholder="House / Apartment / Plot number, Street name"
           className="mt-1.5 flex w-full rounded-md border border-input/60 bg-card/10 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-invalid={Boolean(errors.streetAddress)}
         />
         {errors.streetAddress && (
           <p className="mt-1 text-xs text-destructive">{errors.streetAddress}</p>
         )}
+      </div>
+
+      {/* Landmark (dedicated field to assist dispatchers/couriers) */}
+      <div>
+        <Label htmlFor="landmark" className="text-xs font-medium">
+          Landmark <span className="text-muted-foreground font-normal">(e.g. Near Total Filling Station, Opposite Central Mosque)</span>
+        </Label>
+        <Input
+          id="landmark"
+          value={value.landmark || ""}
+          onChange={(e) => onChange({ ...value, landmark: e.target.value })}
+          placeholder="Prominent landmark, bus stop, junction, or building near you"
+          className="mt-1.5"
+        />
       </div>
 
       {/* Delivery Instructions (optional) */}
