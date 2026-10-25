@@ -303,7 +303,7 @@ export function CatalogToolbar({
 
   return (
     <>
-      <div className="w-full max-w-full flex flex-col overflow-x-hidden">
+      <div className="w-full max-w-full flex flex-col overflow-x-clip">
         {/* Top Split Toolbar Bar spanning edge-to-edge */}
         <div className="flex w-full items-stretch justify-between min-h-[48px] sm:min-h-[64px]">
           {/* Left Section: FILTERS and CATEGORIES */}

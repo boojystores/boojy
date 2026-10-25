@@ -166,7 +166,7 @@ function CatalogFrame({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
+    <div className="w-full max-w-full overflow-x-clip">
       {/* Upper header section matching the reference design */}
       <div className="w-full border-b border-border bg-background">
         <div className="px-6 py-8 sm:px-10 sm:py-14">
