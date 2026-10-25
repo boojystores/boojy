@@ -11,9 +11,12 @@ import {
   ShoppingBag,
   ShieldCheck,
   Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { priceFormatter } from "@/lib/currency";
+import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
+import type { PaymentMethod } from "@/features/checkout/lib/checkout";
 import {
   getOrderPaymentStatus,
   retryBachsPayment,
@@ -28,6 +31,7 @@ interface PaymentResultViewProps {
 export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewProps) {
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [orderData, setOrderData] = useState<OrderPaymentStatusResult | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -75,6 +79,27 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
   }, [fetchStatus, pollCount, isCancelled]);
+
+  async function handleDownloadReceipt() {
+    if (!orderData?.orderNumber) return;
+    setDownloading(true);
+    try {
+      await downloadReceipt({
+        orderNumber: orderData.orderNumber,
+        totalAmount: orderData.totalAmount || 0,
+        paymentMethod: (orderData.paymentMethod || "bachs") as PaymentMethod,
+        deliveryAddress: orderData.deliveryAddress || "",
+        customerName: orderData.customerName || "Valued Customer",
+        createdAt: orderData.paidAt || orderData.createdAt || undefined,
+        items: orderData.items || [],
+      });
+    } catch (err) {
+      console.error("Failed to generate receipt PDF:", err);
+      alert("Could not generate receipt. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function handleRetry() {
     if (!orderId || retrying) return;
@@ -172,25 +197,70 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
                 <span className="text-muted-foreground">Payment Gateway</span>
                 <span className="font-medium text-foreground">Bachs.io Secure Checkout</span>
               </div>
+              {orderData.deliveryAddress ? (
+                <div className="flex justify-between border-b border-border/60 py-3">
+                  <span className="text-muted-foreground">Delivery To</span>
+                  <span className="max-w-[240px] truncate text-right font-medium text-foreground">
+                    {orderData.deliveryAddress}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex justify-between pt-3">
                 <span className="text-muted-foreground">Status</span>
                 <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                   <ShieldCheck className="h-4 w-4" /> Paid & Confirmed
                 </span>
               </div>
+
+              {orderData.items && orderData.items.length > 0 && (
+                <div className="mt-4 border-t border-border/60 pt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Purchased Pieces
+                  </p>
+                  <ul className="space-y-1.5">
+                    {orderData.items.map((item, idx) => (
+                      <li key={idx} className="flex justify-between text-xs">
+                        <span className="min-w-0 truncate text-foreground">
+                          {item.name} <span className="text-muted-foreground">× {item.quantity}</span>
+                        </span>
+                        <span className="shrink-0 font-medium tabular-nums text-foreground">
+                          {priceFormatter.format(item.unitPrice * item.quantity)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                size="lg"
+                onClick={handleDownloadReceipt}
+                disabled={downloading}
+                className="w-full sm:w-auto"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Receipt…
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" /> Download Receipt
+                  </>
+                )}
+              </Button>
               {orderData.orderNumber && orderData.customerEmail ? (
-                <Button asChild className="w-full sm:w-auto">
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
                   <Link
                     href={`/track?order=${encodeURIComponent(orderData.orderNumber)}&email=${encodeURIComponent(orderData.customerEmail)}`}
                   >
-                    Track Order Status <ArrowRight className="ml-1.5 h-4 w-4" />
+                    Track Order <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Link>
                 </Button>
               ) : null}
-              <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
                 <Link href="/">
                   <ShoppingBag className="mr-1.5 h-4 w-4" /> Continue Shopping
                 </Link>

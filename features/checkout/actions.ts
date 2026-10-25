@@ -193,12 +193,15 @@ export type OrderPaymentStatusResult = {
   orderNumber?: string;
   totalAmount?: number;
   status?: string;
+  paymentMethod?: PaymentMethod;
   paymentStatus?: string;
   paymentProvider?: string;
   paidAt?: string | null;
   createdAt?: string;
   customerName?: string;
   customerEmail?: string;
+  deliveryAddress?: string;
+  items?: { name: string; quantity: number; unitPrice: number }[];
   message?: string;
 };
 
@@ -219,15 +222,23 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
       order_number,
       total_amount,
       status,
+      payment_method,
       payment_status,
       payment_provider,
       bachs_checkout_id,
       paid_at,
+      delivery_address,
       created_at,
       customer_id,
       customers (
         full_name,
         email
+      ),
+      order_items (
+        id,
+        product_name,
+        quantity,
+        unit_price
       )
     `)
     .eq("id", orderId)
@@ -279,17 +290,29 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
   const customerData = order.customers as { full_name?: string; email?: string } | { full_name?: string; email?: string }[] | null;
   const customer = Array.isArray(customerData) ? customerData[0] : customerData;
 
+  const rawItems = (order as { order_items?: { product_name: string; quantity: number; unit_price: number }[] }).order_items;
+  const items = Array.isArray(rawItems)
+    ? rawItems.map((it) => ({
+        name: it.product_name,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unit_price),
+      }))
+    : [];
+
   return {
     ok: true,
     orderNumber: order.order_number,
     totalAmount: Number(order.total_amount),
     status: order.status,
+    paymentMethod: (order.payment_method || "bachs") as PaymentMethod,
     paymentStatus: order.payment_status || "pending",
     paymentProvider: order.payment_provider || undefined,
     paidAt: order.paid_at,
+    deliveryAddress: order.delivery_address || "",
     createdAt: order.created_at,
     customerName: customer?.full_name,
     customerEmail: customer?.email,
+    items,
   };
 }
 
