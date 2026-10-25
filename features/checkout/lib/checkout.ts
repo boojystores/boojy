@@ -24,6 +24,19 @@ export type CheckoutDetails = {
   deliveryAddress: string;
   paymentMethod: PaymentMethod;
   notes?: string;
+  // Shipping & location extensions
+  stateId?: string;
+  lgaId?: string | null;
+  deliveryZoneId?: string | null;
+  stateName?: string;
+  lgaName?: string;
+  cityName?: string;
+  streetAddress?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  shippingMethodId?: string;
+  shippingFeeKobo?: number;
+  deliveryInstructions?: string;
 };
 
 export type CheckoutLineInput = {
@@ -46,6 +59,8 @@ export type PlaceOrderResult =
       orderId: string;
       orderNumber: string;
       totalAmount: number;
+      shippingFee?: number;
+      itemsSubtotal?: number;
       checkoutUrl?: string;
     }
   | {
@@ -56,7 +71,7 @@ export type PlaceOrderResult =
     }
   | {
       ok: false;
-      code: "VALIDATION";
+      code: "VALIDATION" | "SHIPPING_UNAVAILABLE";
       message: string;
       /** Which form field, when the Server Action rejected the input. */
       field?: string;
@@ -72,7 +87,7 @@ export async function placeOrder(
   details: CheckoutDetails,
   items: CheckoutLineInput[],
 ): Promise<PlaceOrderResult> {
-  const { data, error } = await client.rpc("place_order", {
+  const baseParams = {
     p_full_name: details.fullName,
     p_email: details.email,
     p_contact_number: details.contactNumber,
@@ -83,7 +98,31 @@ export async function placeOrder(
       product_id: line.productId,
       quantity: line.quantity,
     })),
-  });
+  };
+
+  const extendedParams = {
+    ...baseParams,
+    p_shipping_method_id: details.shippingMethodId || null,
+    p_shipping_fee_kobo: details.shippingFeeKobo || 0,
+    p_state_id: details.stateId || null,
+    p_lga_id: details.lgaId || null,
+    p_delivery_zone_id: details.deliveryZoneId || null,
+    p_state_name: details.stateName || null,
+    p_lga_name: details.lgaName || null,
+    p_city_name: details.cityName || null,
+    p_street_address: details.streetAddress || details.deliveryAddress,
+    p_recipient_name: details.recipientName || details.fullName,
+    p_recipient_phone: details.recipientPhone || details.contactNumber,
+  };
+
+  let { data, error } = await client.rpc("place_order", extendedParams);
+
+  // If extended signature fails due to unapplied migration, fallback to base params
+  if (error && error.message && (error.message.includes("parameter") || error.message.includes("function public.place_order"))) {
+    const fallbackRes = await client.rpc("place_order", baseParams);
+    data = fallbackRes.data;
+    error = fallbackRes.error;
+  }
 
   // Transport/DB-level failure (network, timeout, unapplied migration).
   if (error) {
@@ -144,5 +183,7 @@ export async function placeOrder(
     orderId: result.order_id ?? "",
     orderNumber: result.order_number ?? "",
     totalAmount: result.total_amount ?? 0,
+    shippingFee: (result as any).shipping_fee ?? 0,
+    itemsSubtotal: (result as any).items_subtotal ?? (result.total_amount ?? 0),
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Download, Package, RefreshCw } from "lucide-react";
+import { Search, Download, Package, RefreshCw, Truck, MapPin, ExternalLink, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackOrder, type OrderTrackingResult, ORDER_STATUS_LABELS } from "@/features/tracking/lib/tracking";
 import { OrderStatusBar } from "@/features/tracking/components/order-status-bar";
@@ -90,6 +90,8 @@ export function TrackOrderForm() {
         deliveryAddress: result.deliveryAddress,
         customerName: result.customerName,
         createdAt: result.createdAt,
+        shippingFee: result.shippingFee,
+        shippingMethodName: result.shippingMethodName,
         items: result.items.map((item) => ({
           name: item.productName,
           quantity: item.quantity,
@@ -172,6 +174,73 @@ export function TrackOrderForm() {
             <OrderStatusBar status={result.status} />
           </div>
 
+          {/* Delivery & Dispatch Details */}
+          <div className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Truck className="h-4 w-4 text-primary" /> Delivery & Dispatch
+              </h3>
+              {result.shipmentStatus && (
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary uppercase tracking-wide">
+                  {result.shipmentStatus.replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-start gap-2.5">
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Destination Address</p>
+                  <p className="font-medium text-foreground">{result.deliveryAddress}</p>
+                </div>
+              </div>
+
+              {result.shippingMethodName && (
+                <div className="flex items-center justify-between border-t border-border/40 pt-2.5 text-xs">
+                  <span className="text-muted-foreground">Method</span>
+                  <span className="font-medium text-foreground">{result.shippingMethodName}</span>
+                </div>
+              )}
+
+              {result.assignedRiderName && (
+                <div className="flex items-center justify-between border-t border-border/40 pt-2.5 text-xs">
+                  <span className="text-muted-foreground">Assigned Dispatcher</span>
+                  <span className="font-medium text-foreground flex items-center gap-1.5">
+                    {result.assignedRiderName}
+                    {result.assignedRiderPhone && (
+                      <a
+                        href={`tel:${result.assignedRiderPhone}`}
+                        className="text-primary hover:underline flex items-center gap-0.5 ml-1"
+                      >
+                        <Phone className="h-3 w-3" /> {result.assignedRiderPhone}
+                      </a>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {result.trackingNumber && (
+                <div className="flex items-center justify-between border-t border-border/40 pt-2.5 text-xs">
+                  <span className="text-muted-foreground">Tracking Number</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {result.trackingUrl ? (
+                      <a
+                        href={result.trackingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1"
+                      >
+                        {result.trackingNumber} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      result.trackingNumber
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Order Summary */}
           <div className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-6">
             <h3 className="mb-4 font-sans text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -224,6 +293,14 @@ export function TrackOrderForm() {
                       : "Pending Confirmation"}
                 </span>
               </div>
+              {result.shippingFee !== undefined && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Shipping {result.shippingMethodName ? `(${result.shippingMethodName})` : ""}</span>
+                  <span className="font-medium text-foreground tabular-nums">
+                    {result.shippingFee === 0 ? "FREE" : priceFormatter.format(result.shippingFee)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm font-semibold sm:text-base">
                 <span>Total</span>
                 <span className="tabular-nums">

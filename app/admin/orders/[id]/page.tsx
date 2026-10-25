@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrderDetail, PAYMENT_METHOD_LABELS } from "@/features/admin/lib/orders/orders";
 import { OrderStatusActions } from "@/features/admin/components/order-status-actions";
 import { OrderStatusBadge } from "@/features/admin/components/order-status-badge";
+import { OrderShipmentManager } from "@/features/admin/components/order-shipment-manager";
 
 export const metadata: Metadata = {
   title: "Order — Boojy Admin",
@@ -105,7 +106,7 @@ export default async function AdminOrderDetailPage({
 
           <section className="rounded-xl border border-border bg-background p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Delivery
+              Delivery Destination
             </h2>
             <p className="mt-3 flex items-start gap-2 text-sm">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -118,6 +119,21 @@ export default async function AdminOrderDetailPage({
               </p>
             )}
           </section>
+
+          <OrderShipmentManager
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            shippingMethodName={order.shippingMethodName}
+            shippingFee={order.shippingFee}
+            recipientName={order.recipientName}
+            recipientPhone={order.recipientPhone}
+            initialShipmentStatus={order.shipmentStatus}
+            initialAssignedRiderName={order.assignedRiderName}
+            initialAssignedRiderPhone={order.assignedRiderPhone}
+            initialTrackingNumber={order.trackingNumber}
+            initialTrackingUrl={order.trackingUrl}
+            initialCourierProvider={order.courierProvider}
+          />
 
           <section className="rounded-xl border border-border bg-background p-5">
             <div className="flex items-center justify-between">
@@ -233,6 +249,16 @@ export default async function AdminOrderDetailPage({
                 {priceFormatter.format(lineTotal)}
               </span>
             </div>
+            {order.shippingFee !== undefined && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Shipping {order.shippingMethodName ? `(${order.shippingMethodName})` : ""}
+                </span>
+                <span className="font-medium tabular-nums">
+                  {order.shippingFee === 0 ? "FREE" : priceFormatter.format(order.shippingFee)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-lg font-bold">
               <span>Total</span>
               <span className="tabular-nums">

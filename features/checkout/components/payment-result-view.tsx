@@ -92,6 +92,8 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
         deliveryAddress: orderData.deliveryAddress || "",
         customerName: orderData.customerName || "Valued Customer",
         createdAt: orderData.paidAt || orderData.createdAt || undefined,
+        shippingFee: orderData.shippingFee,
+        shippingMethodName: orderData.shippingMethodName,
         items: orderData.items || [],
       });
     } catch (err) {

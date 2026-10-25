@@ -137,11 +137,80 @@ export async function submitCheckout(input: {
     }
   }
 
+  // --- Authoritative Server-side Shipping Validation & Calculation ---
+  let verifiedShippingFeeKobo = 0;
+  let verifiedShippingMethodName: string | undefined;
+
+  if (details.stateId) {
+    const { calculateShippingOptionsServer } = await import("@/features/shipping/actions");
+    const shippingCalc = await calculateShippingOptionsServer({
+      stateId: details.stateId,
+      lgaId: details.lgaId,
+      deliveryZoneId: details.deliveryZoneId,
+      shippingMethodId: details.shippingMethodId,
+      subtotalKobo: 0,
+    });
+
+    if (!shippingCalc.available || shippingCalc.options.length === 0) {
+      return {
+        ok: false,
+        code: "SHIPPING_UNAVAILABLE",
+        message: "Delivery is currently not available to the selected location.",
+      };
+    }
+
+    const matchedOption = details.shippingMethodId
+      ? shippingCalc.options.find((opt) => opt.methodId === details.shippingMethodId)
+      : shippingCalc.options[0];
+
+    if (!matchedOption) {
+      return {
+        ok: false,
+        code: "SHIPPING_UNAVAILABLE",
+        message: "The chosen delivery method is not available for this location.",
+      };
+    }
+
+    verifiedShippingFeeKobo = matchedOption.priceKobo;
+    verifiedShippingMethodName = matchedOption.methodName;
+    details.shippingFeeKobo = verifiedShippingFeeKobo;
+    details.shippingMethodId = matchedOption.methodId;
+  }
+
   const supabase = await createClient();
   const orderResult = await placeOrder(supabase, details, items);
 
   if (!orderResult.ok) {
     return orderResult;
+  }
+
+  // Ensure order row has full shipping & delivery snapshot persisted in Supabase
+  try {
+    const serviceClient = createServiceClient();
+    const verifiedShippingFeeNaira = Math.round(verifiedShippingFeeKobo / 100);
+    const updatePayload: any = {
+      recipient_name: details.recipientName || details.fullName,
+      recipient_phone: details.recipientPhone || details.contactNumber,
+      state_name: details.stateName || null,
+      lga_name: details.lgaName || null,
+      city_name: details.cityName || null,
+      street_address: details.streetAddress || details.deliveryAddress,
+      delivery_instructions: details.notes || null,
+      shipping_fee_kobo: verifiedShippingFeeKobo,
+      shipping_fee: verifiedShippingFeeNaira,
+      shipping_method_id: details.shippingMethodId || null,
+      shipping_method_name: verifiedShippingMethodName || null,
+    };
+
+    // If orderResult total did not include shipping fee (e.g. if place_order fell back), adjust total_amount
+    if (verifiedShippingFeeNaira > 0 && orderResult.totalAmount <= (orderResult.itemsSubtotal || 0)) {
+      updatePayload.total_amount = orderResult.totalAmount + verifiedShippingFeeNaira;
+      orderResult.totalAmount = updatePayload.total_amount;
+    }
+
+    await serviceClient.from("orders").update(updatePayload).eq("id", orderResult.orderId);
+  } catch (snapErr) {
+    console.warn("[Order Shipping Snapshot Warn]:", snapErr);
   }
 
   // If customer chose Bachs, create the Bachs Checkout Session
@@ -215,6 +284,8 @@ export type OrderPaymentStatusResult = {
   customerName?: string;
   customerEmail?: string;
   deliveryAddress?: string;
+  shippingFee?: number;
+  shippingMethodName?: string;
   items?: { name: string; quantity: number; unitPrice: number }[];
   checkoutUrl?: string;
   message?: string;
@@ -243,6 +314,8 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
       bachs_checkout_id,
       paid_at,
       delivery_address,
+      shipping_fee,
+      shipping_method_name,
       created_at,
       customer_id,
       customers (
@@ -357,6 +430,8 @@ export async function getOrderPaymentStatus(orderId: string): Promise<OrderPayme
     paymentProvider: order.payment_provider || undefined,
     paidAt: order.paid_at,
     deliveryAddress: order.delivery_address || "",
+    shippingFee: (order as any).shipping_fee != null ? Number((order as any).shipping_fee) : undefined,
+    shippingMethodName: (order as any).shipping_method_name || undefined,
     createdAt: order.created_at,
     customerName: customer?.full_name,
     customerEmail: customer?.email,

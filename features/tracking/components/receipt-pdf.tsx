@@ -134,6 +134,8 @@ export type ReceiptData = {
   createdAt?: string;
   items: { name: string; quantity: number; unitPrice: number }[];
   logoUrl?: string;
+  shippingFee?: number;
+  shippingMethodName?: string;
 };
 
 const priceFmt = (n: number) =>
@@ -224,6 +226,17 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
             </View>
           ))}
         </View>
+
+        {data.shippingFee !== undefined && (
+          <View style={[styles.row, { marginTop: 10 }]}>
+            <Text style={styles.label}>
+              Delivery ({data.shippingMethodName || "Shipping"}):
+            </Text>
+            <Text style={styles.value}>
+              {data.shippingFee === 0 ? "FREE" : priceFmt(data.shippingFee)}
+            </Text>
+          </View>
+        )}
 
         {/* Total */}
         <View style={styles.totalSection}>

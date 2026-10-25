@@ -48,6 +48,14 @@ export type OrderTrackingResult = {
   deliveryAddress: string;
   createdAt: string;
   customerName: string;
+  shippingFee?: number;
+  shippingMethodName?: string;
+  shipmentStatus?: string;
+  assignedRiderName?: string;
+  assignedRiderPhone?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  courierProvider?: string;
   items: TrackingItem[];
 };
 
@@ -63,6 +71,14 @@ type TrackOrderRow = {
   delivery_address: string;
   created_at: string;
   customer_name: string;
+  shipping_fee?: number | null;
+  shipping_method_name?: string | null;
+  shipment_status?: string | null;
+  assigned_rider_name?: string | null;
+  assigned_rider_phone?: string | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  courier_provider?: string | null;
   items: {
     product_name: string;
     image_url: string | null;
@@ -107,6 +123,14 @@ export async function trackOrder(
     deliveryAddress: row.delivery_address,
     createdAt: row.created_at,
     customerName: row.customer_name,
+    shippingFee: row.shipping_fee != null ? Number(row.shipping_fee) : undefined,
+    shippingMethodName: row.shipping_method_name || undefined,
+    shipmentStatus: row.shipment_status || undefined,
+    assignedRiderName: row.assigned_rider_name || undefined,
+    assignedRiderPhone: row.assigned_rider_phone || undefined,
+    trackingNumber: row.tracking_number || undefined,
+    trackingUrl: row.tracking_url || undefined,
+    courierProvider: row.courier_provider || undefined,
     items: (row.items ?? []).map((item) => ({
       productName: item.product_name,
       imageUrl: item.image_url,

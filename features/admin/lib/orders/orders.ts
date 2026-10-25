@@ -225,6 +225,16 @@ export type OrderDetail = {
   bachsChargeId?: string | null;
   paidAt?: string | null;
   paymentMetadata?: Record<string, unknown> | null;
+  shippingFee?: number;
+  shippingMethodName?: string;
+  shipmentStatus?: string;
+  assignedRiderName?: string;
+  assignedRiderPhone?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  courierProvider?: string;
+  recipientName?: string;
+  recipientPhone?: string;
   items: OrderItemDetail[];
 };
 
@@ -275,6 +285,20 @@ export async function getOrderDetail(
   if (error || !data) return null;
 
   const row = data as OrderDetailRow;
+
+  // Also retrieve delivery and shipment columns from orders table
+  let orderExtra: any = null;
+  try {
+    const { data: extra } = await client
+      .from("orders")
+      .select("shipping_fee, shipping_method_name, shipment_status, assigned_rider_name, assigned_rider_phone, tracking_number, tracking_url, courier_provider, recipient_name, recipient_phone")
+      .eq("id", orderId)
+      .maybeSingle();
+    orderExtra = extra;
+  } catch {
+    // Ignore if unmigrated
+  }
+
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -296,6 +320,16 @@ export async function getOrderDetail(
     bachsChargeId: row.bachs_charge_id,
     paidAt: row.paid_at,
     paymentMetadata: row.payment_metadata,
+    shippingFee: orderExtra?.shipping_fee != null ? Number(orderExtra.shipping_fee) : 0,
+    shippingMethodName: orderExtra?.shipping_method_name || undefined,
+    shipmentStatus: orderExtra?.shipment_status || "pending",
+    assignedRiderName: orderExtra?.assigned_rider_name || undefined,
+    assignedRiderPhone: orderExtra?.assigned_rider_phone || undefined,
+    trackingNumber: orderExtra?.tracking_number || undefined,
+    trackingUrl: orderExtra?.tracking_url || undefined,
+    courierProvider: orderExtra?.courier_provider || undefined,
+    recipientName: orderExtra?.recipient_name || undefined,
+    recipientPhone: orderExtra?.recipient_phone || undefined,
     items: row.items.map((item) => ({
       id: item.id,
       productId: item.product_id,

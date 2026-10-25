@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShoppingBag,
+  Truck,
   X,
 } from "lucide-react";
 import { cartCount, cartSubtotal, useCartStore, type CartItem } from "@/features/cart/lib/cart";
@@ -19,10 +20,13 @@ import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { type PaymentMethodConfig } from "@/features/checkout/lib/payment-methods";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
+import { NigeriaAddressFields, type AddressData } from "@/features/shipping/components/nigeria-address-fields";
+import { ShippingMethodSelector } from "@/features/shipping/components/shipping-method-selector";
+import { calculateShippingOptionsServer } from "@/features/shipping/actions";
+import type { NigerianState, NigerianLga, DeliveryZone, ShippingOption } from "@/features/shipping/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { BoojyPreloader } from "@/components/boojy-preloader";
 import { cn } from "@/lib/utils";
 import { priceFormatter } from "@/lib/currency";
@@ -39,7 +43,6 @@ type FormFields = {
   fullName: string;
   email: string;
   contactNumber: string;
-  deliveryAddress: string;
   notes: string;
   paymentMethod: PaymentMethod;
 };
@@ -48,22 +51,38 @@ const EMPTY_FORM: FormFields = {
   fullName: "",
   email: "",
   contactNumber: "",
-  deliveryAddress: "",
   notes: "",
   paymentMethod: "bachs",
 };
 
+const EMPTY_ADDRESS: AddressData = {
+  country: "Nigeria",
+  stateId: "",
+  stateName: "",
+  lgaId: "",
+  lgaName: "",
+  deliveryZoneId: null,
+  cityName: "",
+  streetAddress: "",
+  recipientName: "",
+  recipientPhone: "",
+  deliveryInstructions: "",
+};
+
 export function CheckoutView({
   initialPaymentMethods,
+  initialStates = [],
+  initialLgas = [],
+  initialDeliveryZones = [],
 }: {
   initialPaymentMethods?: PaymentMethodConfig[];
+  initialStates?: NigerianState[];
+  initialLgas?: NigerianLga[];
+  initialDeliveryZones?: DeliveryZone[];
 } = {}) {
   const items = useCartStore((state) => state.items);
   const hasHydrated = useCartStore((state) => state.hasHydrated);
   const clearCart = useCartStore((state) => state.clearCart);
-  // Keep the summary honest with the live catalog (ADR-0013): prices/stock
-  // refresh on mount, and retired Products get flagged below. Checkout stays
-  // the authoritative backstop for anything that changes mid-submit.
   useCartReconcile();
   const unavailableCount = items.filter((item) => item.unavailable).length;
 
@@ -85,6 +104,9 @@ export function CheckoutView({
     paymentMethod: (availablePaymentMethods[0]?.id as PaymentMethod) || "bachs",
   }));
 
+  const [address, setAddress] = useState<AddressData>(EMPTY_ADDRESS);
+  const [addressErrors, setAddressErrors] = useState<Partial<Record<keyof AddressData, string>>>({});
+
   // Ensure active payment method is selected if default or previous was disabled
   useEffect(() => {
     if (availablePaymentMethods.length > 0) {
@@ -101,11 +123,18 @@ export function CheckoutView({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CheckoutActionResponse | null>(null);
+
+  // Dynamic Shipping Calculations
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedOption, setSelectedOption] = useState<ShippingOption | null>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
   const [redirectSession, setRedirectSession] = useState<{
     checkoutUrl: string;
     orderNumber: string;
     totalAmount: number;
   } | null>(null);
+
   // Snapshot of what was ordered, captured before the cart is cleared.
   const [confirmation, setConfirmation] = useState<{
     orderNumber: string;
@@ -115,10 +144,63 @@ export function CheckoutView({
     fullName: string;
     deliveryAddress: string;
     paymentMethod: PaymentMethod;
+    shippingFee: number;
+    shippingMethodName?: string;
   } | null>(null);
 
   const subtotal = cartSubtotal(items);
   const count = cartCount(items);
+
+  // Real-time Shipping Calculation on destination change
+  useEffect(() => {
+    if (!address.stateId) {
+      setShippingOptions([]);
+      setSelectedOption(null);
+      return;
+    }
+
+    let active = true;
+    setIsLoadingShipping(true);
+
+    calculateShippingOptionsServer({
+      stateId: address.stateId,
+      lgaId: address.lgaId || undefined,
+      deliveryZoneId: address.deliveryZoneId || undefined,
+      subtotalKobo: Math.round(subtotal * 100),
+    })
+      .then((res) => {
+        if (!active) return;
+        if (!res.available || res.options.length === 0) {
+          setShippingOptions([]);
+          setSelectedOption(null);
+        } else {
+          setShippingOptions(res.options);
+          // Preserve selection or select first option
+          setSelectedOption((prev) => {
+            if (prev && res.options.some((o) => o.methodId === prev.methodId)) {
+              return res.options.find((o) => o.methodId === prev.methodId)!;
+            }
+            return res.options[0];
+          });
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error("Error calculating shipping:", err);
+        setShippingOptions([]);
+        setSelectedOption(null);
+      })
+      .finally(() => {
+        if (active) setIsLoadingShipping(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [address.stateId, address.lgaId, address.deliveryZoneId, subtotal]);
+
+  const shippingFee = selectedOption ? selectedOption.priceNaira : 0;
+  const orderTotal = subtotal + shippingFee;
 
   const set = (key: keyof FormFields) => (value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -131,15 +213,46 @@ export function CheckoutView({
     event.preventDefault();
     if (submitting) return;
 
-    // Quick client-side pass so the user sees field errors immediately; the
-    // server action re-validates everything authoritatively (ADR-0004).
+    // Client-side pass
     const errors: Partial<Record<keyof FormFields, string>> = {};
-    if (!fields.fullName.trim()) errors.fullName = "Full name is required.";
-    if (!EMAIL_RE.test(fields.email.trim())) errors.email = "Enter a valid email address.";
-    if (!fields.contactNumber.trim()) errors.contactNumber = "Contact number is required.";
-    if (!fields.deliveryAddress.trim()) errors.deliveryAddress = "Delivery address is required.";
-    if (Object.keys(errors).length > 0) {
+    const addrErrors: Partial<Record<keyof AddressData, string>> = {};
+
+    const effectiveName = (address.recipientName.trim() || fields.fullName.trim());
+    const effectivePhone = (address.recipientPhone.trim() || fields.contactNumber.trim());
+
+    if (!effectiveName) {
+      addrErrors.recipientName = "Recipient full name is required.";
+      errors.fullName = "Full name is required.";
+    }
+    if (!EMAIL_RE.test(fields.email.trim())) {
+      errors.email = "Enter a valid email address.";
+    }
+    if (!effectivePhone) {
+      addrErrors.recipientPhone = "Contact phone number is required.";
+      errors.contactNumber = "Contact number is required.";
+    }
+    if (!address.stateId) {
+      addrErrors.stateId = "Please select your state.";
+    }
+    if (!address.lgaId) {
+      addrErrors.lgaId = "Please select your Local Government Area.";
+    }
+    if (!address.streetAddress.trim()) {
+      addrErrors.streetAddress = "Street address is required.";
+    }
+
+    if (Object.keys(errors).length > 0 || Object.keys(addrErrors).length > 0) {
       setFieldErrors(errors);
+      setAddressErrors(addrErrors);
+      return;
+    }
+
+    if (!selectedOption) {
+      setResult({
+        ok: false,
+        code: "SHIPPING_UNAVAILABLE",
+        message: "Please select an available delivery method before proceeding.",
+      });
       return;
     }
 
@@ -152,41 +265,53 @@ export function CheckoutView({
       .filter((i) => i.selected_size)
       .map((i) => `${i.name} [Size: ${i.selected_size}] x${i.quantity}`)
       .join(", ");
-    const userNotes = fields.notes.trim();
+    const userNotes = (address.deliveryInstructions || fields.notes).trim();
     const combinedNotes = sizeLines
       ? userNotes
         ? `${userNotes} | Sizes: ${sizeLines}`
         : `Sizes: ${sizeLines}`
       : userNotes || undefined;
 
+    const formattedDeliveryAddress = `${address.streetAddress.trim()}, ${
+      address.cityName ? address.cityName.trim() + ", " : ""
+    }${address.lgaName || address.lgaId}, ${address.stateName || address.stateId}`;
+
     setSubmitting(true);
     setResult(null);
     try {
       const response = await submitCheckout({
         details: {
-          fullName: fields.fullName.trim(),
+          fullName: effectiveName,
           email: fields.email.trim(),
-          contactNumber: fields.contactNumber.trim(),
-          deliveryAddress: fields.deliveryAddress.trim(),
+          contactNumber: effectivePhone,
+          deliveryAddress: formattedDeliveryAddress,
           paymentMethod: fields.paymentMethod,
           notes: combinedNotes,
+          recipientName: effectiveName,
+          recipientPhone: effectivePhone,
+          stateId: address.stateId,
+          stateName: address.stateName,
+          lgaId: address.lgaId,
+          lgaName: address.lgaName,
+          deliveryZoneId: address.deliveryZoneId,
+          cityName: address.cityName,
+          streetAddress: address.streetAddress.trim(),
+          shippingMethodId: selectedOption.methodId,
+          deliveryInstructions: userNotes || undefined,
         },
         items: lines,
       });
 
       if (response.ok) {
         if (response.checkoutUrl) {
-          // Immediately set redirecting state so customer sees clear feedback
           setRedirectSession({
             checkoutUrl: response.checkoutUrl,
             orderNumber: response.orderNumber,
             totalAmount: response.totalAmount,
           });
 
-          // Clear cart so session is consumed
           clearCart();
 
-          // Reliable cross-browser navigation for iOS Safari & Android WebViews
           try {
             window.location.assign(response.checkoutUrl);
           } catch {
@@ -195,20 +320,19 @@ export function CheckoutView({
           return;
         }
 
-        // Copy the array (NOT `{ ...items }` — that yields an object of
-        // numeric keys). The snapshot is shown in the confirmation modal
-        // after the cart is cleared.
         const snapshot = [...items];
         setConfirmation({
           orderNumber: response.orderNumber,
           totalAmount: response.totalAmount,
           count,
           lines: snapshot,
-          fullName: fields.fullName.trim(),
-          deliveryAddress: fields.deliveryAddress.trim(),
+          fullName: effectiveName,
+          deliveryAddress: formattedDeliveryAddress,
           paymentMethod: fields.paymentMethod,
+          shippingFee,
+          shippingMethodName: selectedOption.methodName,
         });
-        clearCart(); // success: the cart is spent
+        clearCart();
         return;
       }
 
@@ -221,7 +345,6 @@ export function CheckoutView({
     }
   }
 
-  // Not hydrated yet: show branded logo preloader
   if (!hasHydrated) {
     return (
       <div className="flex min-h-[60vh] w-full items-center justify-center">
@@ -230,7 +353,6 @@ export function CheckoutView({
     );
   }
 
-  // Dedicated gateway redirect screen (crucial for iOS Safari / Mobile WebKit)
   if (redirectSession) {
     return (
       <div className="site-container py-16 sm:py-24">
@@ -271,6 +393,10 @@ export function CheckoutView({
     );
   }
 
+  const destinationSummary = address.stateName
+    ? `${address.cityName ? address.cityName + ", " : ""}${address.lgaName ? address.lgaName + ", " : ""}${address.stateName}`
+    : undefined;
+
   return (
     <div className="site-container py-10 relative">
       {submitting && (
@@ -288,106 +414,95 @@ export function CheckoutView({
 
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">Checkout</h1>
 
-      {/* After a successful order the cart is cleared, so the form gives way
-          to the empty state (the confirmation modal stays on top). */}
       {items.length === 0 ? (
         <EmptyCheckout />
       ) : (
-        <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_380px]">
           {/* Left: guest details form */}
           <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-6">
+            {/* 1. Contact / Email */}
             <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Your details
+                1. Contact Information
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                No account needed — we only use these to deliver your order
-                (guest checkout).
+                We will send your order confirmation and digital delivery tracking updates here.
               </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field
-                  className="sm:col-span-2"
-                  label="Full name"
-                  htmlFor="checkout-full-name"
-                  error={fieldErrors.fullName}
-                >
-                  <Input
-                    id="checkout-full-name"
-                    name="fullName"
-                    autoComplete="name"
-                    placeholder="Ada Lovelace"
-                    value={fields.fullName}
-                    onChange={(e) => set("fullName")(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.fullName)}
-                  />
-                </Field>
-                <Field label="Email" htmlFor="checkout-email" error={fieldErrors.email}>
+              <div className="mt-4">
+                <Field label="Email Address" htmlFor="checkout-email" error={fieldErrors.email}>
                   <Input
                     id="checkout-email"
                     name="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="ada@example.com"
+                    placeholder="you@example.com"
                     value={fields.email}
                     onChange={(e) => set("email")(e.target.value)}
                     aria-invalid={Boolean(fieldErrors.email)}
                   />
                 </Field>
-                <Field
-                  label="Contact number"
-                  htmlFor="checkout-contact"
-                  error={fieldErrors.contactNumber}
-                >
-                  <Input
-                    id="checkout-contact"
-                    name="contactNumber"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="+234 000 0000 000"
-                    value={fields.contactNumber}
-                    onChange={(e) => set("contactNumber")(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.contactNumber)}
-                  />
-                </Field>
-                <Field
-                  className="sm:col-span-2"
-                  label="Delivery address"
-                  htmlFor="checkout-address"
-                  error={fieldErrors.deliveryAddress}
-                >
-                  <textarea
-                    id="checkout-address"
-                    name="deliveryAddress"
-                    rows={3}
-                    autoComplete="street-address"
-                    placeholder="Street, barangay, city, province, postal code"
-                    value={fields.deliveryAddress}
-                    onChange={(e) => set("deliveryAddress")(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.deliveryAddress)}
-                    className="flex w-full rounded-md border border-input/60 bg-card/10 px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                  />
-                </Field>
-                <Field
-                  className="sm:col-span-2"
-                  label="Notes (optional)"
-                  htmlFor="checkout-notes"
-                >
-                  <textarea
-                    id="checkout-notes"
-                    name="notes"
-                    rows={2}
-                    placeholder="Delivery instructions, landmark, gate code…"
-                    value={fields.notes}
-                    onChange={(e) => set("notes")(e.target.value)}
-                    className="flex w-full rounded-md border border-input/60 bg-card/10 px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                  />
-                </Field>
               </div>
             </section>
 
+            {/* 2. Nigeria Delivery Address & Destination */}
             <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Payment method
+                2. Delivery Destination
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Delivery across all 36 Nigerian States and the Federal Capital Territory (FCT).
+              </p>
+              <div className="mt-4">
+                <NigeriaAddressFields
+                  states={initialStates}
+                  lgas={initialLgas}
+                  deliveryZones={initialDeliveryZones}
+                  value={address}
+                  onChange={(newAddress) => {
+                    setAddress(newAddress);
+                    if (newAddress.recipientName) {
+                      set("fullName")(newAddress.recipientName);
+                    }
+                    if (newAddress.recipientPhone) {
+                      set("contactNumber")(newAddress.recipientPhone);
+                    }
+                    // clear relevant errors
+                    setAddressErrors({});
+                  }}
+                  errors={addressErrors}
+                />
+              </div>
+            </section>
+
+            {/* 3. Shipping & Delivery Methods */}
+            <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    3. Delivery Option
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Live rates automatically calculated for your location.
+                  </p>
+                </div>
+                <Truck className="h-5 w-5 text-muted-foreground/50" />
+              </div>
+              <div className="mt-4">
+                <ShippingMethodSelector
+                  options={shippingOptions}
+                  selectedMethodId={selectedOption?.methodId}
+                  onSelect={(opt) => setSelectedOption(opt)}
+                  loading={isLoadingShipping}
+                  hasDestination={Boolean(address.stateId)}
+                  destinationSummary={destinationSummary}
+                />
+              </div>
+            </section>
+
+            {/* 4. Payment Method */}
+            <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                4. Payment Method
               </h2>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
@@ -447,7 +562,13 @@ export function CheckoutView({
             <Button
               type="submit"
               size="lg"
-              disabled={submitting || unavailableCount > 0 || availablePaymentMethods.length === 0}
+              disabled={
+                submitting ||
+                unavailableCount > 0 ||
+                availablePaymentMethods.length === 0 ||
+                !selectedOption ||
+                isLoadingShipping
+              }
               className="w-full sm:w-auto font-display text-sm font-bold uppercase tracking-wider"
             >
               {submitting ? (
@@ -455,10 +576,10 @@ export function CheckoutView({
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {fields.paymentMethod === "bachs" ? "Connecting to Payment…" : "Placing order…"}
                 </>
+              ) : fields.paymentMethod === "bachs" ? (
+                `Proceed to Payment · ${priceFormatter.format(orderTotal)}`
               ) : (
-                fields.paymentMethod === "bachs"
-                  ? `Proceed to Payment · ${priceFormatter.format(subtotal)}`
-                  : `Place order · ${priceFormatter.format(subtotal)}`
+                `Place order · ${priceFormatter.format(orderTotal)}`
               )}
             </Button>
             {unavailableCount > 0 && (
@@ -512,17 +633,35 @@ export function CheckoutView({
                 <dt className="text-muted-foreground">Items ({count})</dt>
                 <dd className="font-medium tabular-nums">{priceFormatter.format(subtotal)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Shipping</dt>
-                <dd className="font-medium">{subtotal >= 2500 ? "Free" : "Calculated at checkout"}</dd>
+              <div className="flex justify-between items-center">
+                <dt className="text-muted-foreground">
+                  Shipping {selectedOption?.methodName ? `(${selectedOption.methodName})` : ""}
+                </dt>
+                <dd className="font-medium">
+                  {!address.stateId ? (
+                    <span className="text-xs text-muted-foreground">Select state</span>
+                  ) : isLoadingShipping ? (
+                    <span className="text-xs text-muted-foreground animate-pulse">Calculating…</span>
+                  ) : selectedOption ? (
+                    selectedOption.isFree ? (
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">FREE</span>
+                    ) : (
+                      <span className="tabular-nums">{priceFormatter.format(selectedOption.priceNaira)}</span>
+                    )
+                  ) : (
+                    <span className="text-xs text-destructive">Unavailable</span>
+                  )}
+                </dd>
               </div>
               <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                 <dt>Total</dt>
-                <dd className="tabular-nums">{priceFormatter.format(subtotal)}</dd>
+                <dd className="tabular-nums font-bold text-foreground">
+                  {priceFormatter.format(orderTotal)}
+                </dd>
               </div>
             </dl>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Stock is reserved when you place your order.
+              Stock is reserved immediately when you place your order.
             </p>
           </aside>
         </div>
@@ -628,7 +767,17 @@ function ConfirmationModal({
   confirmation,
   onClose,
 }: {
-  confirmation: { orderNumber: string; totalAmount: number; count: number; lines: CartItem[]; fullName: string; deliveryAddress: string; paymentMethod: PaymentMethod };
+  confirmation: {
+    orderNumber: string;
+    totalAmount: number;
+    count: number;
+    lines: CartItem[];
+    fullName: string;
+    deliveryAddress: string;
+    paymentMethod: PaymentMethod;
+    shippingFee: number;
+    shippingMethodName?: string;
+  };
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -656,6 +805,8 @@ function ConfirmationModal({
         paymentMethod: confirmation.paymentMethod,
         deliveryAddress: confirmation.deliveryAddress,
         customerName: confirmation.fullName,
+        shippingFee: confirmation.shippingFee,
+        shippingMethodName: confirmation.shippingMethodName,
         items: confirmation.lines.map((line) => ({
           name: line.selected_size ? `${line.name} (${line.selected_size})` : line.name,
           quantity: line.quantity,
@@ -710,9 +861,19 @@ function ConfirmationModal({
               <dt className="text-muted-foreground">Items</dt>
               <dd className="font-medium tabular-nums">{confirmation.count}</dd>
             </div>
+            {confirmation.shippingFee !== undefined && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">
+                  Shipping {confirmation.shippingMethodName ? `(${confirmation.shippingMethodName})` : ""}
+                </dt>
+                <dd className="font-medium tabular-nums">
+                  {confirmation.shippingFee === 0 ? "FREE" : priceFormatter.format(confirmation.shippingFee)}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Total</dt>
-              <dd className="font-semibold tabular-nums">
+              <dd className="font-semibold tabular-nums text-foreground">
                 {priceFormatter.format(confirmation.totalAmount)}
               </dd>
             </div>
