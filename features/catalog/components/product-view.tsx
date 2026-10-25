@@ -16,6 +16,7 @@ import { useCartStore } from "@/features/cart/lib/cart";
 import {
   cleanProductDescription,
   extractProductImages,
+  extractProductSizes,
   type Category,
   type Product,
 } from "@/features/catalog/lib/catalog";
@@ -37,6 +38,18 @@ export function ProductView({
   const outOfStock = product.stock_quantity === 0;
   const maxQuantity = Math.max(1, product.stock_quantity);
 
+  // Available clothing sizes support
+  const availableSizes =
+    product.sizes && product.sizes.length > 0
+      ? product.sizes
+      : extractProductSizes(product);
+
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    if (availableSizes.length === 1) return availableSizes[0];
+    return "";
+  });
+  const [sizeError, setSizeError] = useState(false);
+
   // Gallery images support (any number of uploaded product pictures)
   const galleryImages =
     product.images && product.images.length > 0
@@ -54,7 +67,11 @@ export function ProductView({
 
   function handleAddToCart() {
     if (outOfStock) return;
-    addItem(product, quantity);
+    if (availableSizes.length > 0 && !selectedSize) {
+      setSizeError(true);
+      return;
+    }
+    addItem(product, quantity, selectedSize || undefined);
     setJustAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setJustAdded(false), 1600);
@@ -181,8 +198,58 @@ export function ProductView({
             </p>
           </div>
 
-          {/* Actions: Quantity Stepper on line 1, Add to Bag on line 2 */}
-          <div className="space-y-3 pt-1">
+          {/* Actions: Size Selection + Quantity Stepper on line 1, Add to Bag on line 2 */}
+          <div className="space-y-4 pt-1">
+            {/* Size Selection (rendered when product has sizes) */}
+            {availableSizes.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                    Size: {selectedSize ? (
+                      <span className="font-bold text-foreground font-mono ml-1">
+                        {selectedSize}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground font-normal ml-1">Select your size</span>
+                    )}
+                  </span>
+                  {sizeError && (
+                    <span role="alert" className="text-xs font-semibold text-destructive animate-pulse">
+                      Please select a size
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {availableSizes.map((size) => {
+                    const isSelected = selectedSize === size;
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSize(size);
+                          setSizeError(false);
+                        }}
+                        aria-label={`Select size ${size}`}
+                        aria-pressed={isSelected}
+                        disabled={outOfStock}
+                        className={cn(
+                          "min-w-11 h-11 px-3.5 flex items-center justify-center text-xs font-semibold uppercase tracking-wider transition-all rounded-none border",
+                          isSelected
+                            ? "border-foreground bg-foreground text-background font-bold shadow-xs scale-[1.02]"
+                            : "border-border bg-background text-foreground hover:border-foreground/60 hover:bg-muted/30",
+                          outOfStock && "opacity-50 cursor-not-allowed",
+                        )}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Line 1: Quantity Stepper */}
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-foreground block mb-2">

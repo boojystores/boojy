@@ -103,9 +103,20 @@ export function CheckoutView() {
     }
 
     const lines = items.map((item) => ({
-      productId: item.id,
+      productId: item.productId ?? item.id.split("::")[0],
       quantity: item.quantity,
     }));
+
+    const sizeLines = items
+      .filter((i) => i.selected_size)
+      .map((i) => `${i.name} [Size: ${i.selected_size}] x${i.quantity}`)
+      .join(", ");
+    const userNotes = fields.notes.trim();
+    const combinedNotes = sizeLines
+      ? userNotes
+        ? `${userNotes} | Sizes: ${sizeLines}`
+        : `Sizes: ${sizeLines}`
+      : userNotes || undefined;
 
     setSubmitting(true);
     setResult(null);
@@ -117,7 +128,7 @@ export function CheckoutView() {
           contactNumber: fields.contactNumber.trim(),
           deliveryAddress: fields.deliveryAddress.trim(),
           paymentMethod: fields.paymentMethod,
-          notes: fields.notes.trim() || undefined,
+          notes: combinedNotes,
         },
         items: lines,
       });
@@ -396,6 +407,11 @@ export function CheckoutView() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{item.name}</p>
+                    {item.selected_size && (
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Size: <span className="font-semibold text-foreground font-mono">{item.selected_size}</span>
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {priceFormatter.format(item.price)} each
                     </p>
@@ -556,7 +572,7 @@ function ConfirmationModal({
         deliveryAddress: confirmation.deliveryAddress,
         customerName: confirmation.fullName,
         items: confirmation.lines.map((line) => ({
-          name: line.name,
+          name: line.selected_size ? `${line.name} (${line.selected_size})` : line.name,
           quantity: line.quantity,
           unitPrice: line.price,
         })),
@@ -625,7 +641,12 @@ function ConfirmationModal({
             {confirmation.lines.map((line) => (
               <li key={line.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate">
-                  {line.name}{" "}
+                  {line.name}
+                  {line.selected_size && (
+                    <span className="font-semibold text-foreground font-mono ml-1">
+                      ({line.selected_size})
+                    </span>
+                  )}{" "}
                   <span className="text-muted-foreground">× {line.quantity}</span>
                 </span>
                 <span className="shrink-0 font-medium tabular-nums">

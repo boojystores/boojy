@@ -138,10 +138,12 @@ function CartLine({ item }: { item: CartItem }) {
   const unavailable = item.unavailable === true;
   const outOfStock = !unavailable && item.stock_quantity === 0;
 
+  const productHref = `/products/${item.productId ?? item.id.split("::")[0]}`;
+
   return (
     <li className="flex gap-4 p-4">
       <Link
-        href={`/products/${item.id}`}
+        href={productHref}
         className="block h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:h-20 sm:w-20"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- remote images from seed/Storage */}
@@ -154,11 +156,16 @@ function CartLine({ item }: { item: CartItem }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <Link
-              href={`/products/${item.id}`}
+              href={productHref}
               className="text-sm font-medium transition-colors hover:text-primary"
             >
               {item.name}
             </Link>
+            {item.selected_size && (
+              <p className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Size: <span className="text-foreground font-mono font-bold">{item.selected_size}</span>
+              </p>
+            )}
             <p className="mt-0.5 text-sm text-muted-foreground">
               {priceFormatter.format(item.price)} each
             </p>

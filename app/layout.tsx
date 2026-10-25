@@ -63,6 +63,23 @@ const streetDripsExtrude = localFont({
   ],
 });
 
+// Mona Sans by GitHub — ultra-legible modern variable sans for body, forms, UI, and details
+const monaSans = localFont({
+  src: "../public/fonts/MonaSans.woff2",
+  variable: "--font-mona-sans",
+  display: "swap",
+  weight: "200 900",
+  fallback: [
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "Roboto",
+    "Helvetica Neue",
+    "Arial",
+    "sans-serif",
+  ],
+});
+
 // Geist and Space Grotesk serve as secondary UI fallbacks
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -85,7 +102,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${streetDrips.variable} ${streetDripsExtrude.variable} ${geistSans.variable} ${spaceGrotesk.variable} font-sans antialiased`}
+        className={`${streetDrips.variable} ${streetDripsExtrude.variable} ${monaSans.variable} ${geistSans.variable} ${spaceGrotesk.variable} font-sans antialiased`}
       >
         <RouteAwareThemeProvider>
           {children}

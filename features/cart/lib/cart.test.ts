@@ -256,4 +256,46 @@ describe("cart reconciliation (ADR-0013)", () => {
     expect(result).toEqual({ updated: [], unavailable: [] });
     expect(useCartStore.getState().items).toBe(before);
   });
+
+  it("supports adding products with clothing sizes", () => {
+    const store = freshStore();
+    // Add same product in Size M and Size L
+    store.addItem(cube, 1, "M");
+    store.addItem(cube, 2, "L");
+
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(2);
+
+    expect(items[0]).toMatchObject({
+      id: "p1::M",
+      productId: "p1",
+      quantity: 1,
+      selected_size: "M",
+    });
+
+    expect(items[1]).toMatchObject({
+      id: "p1::L",
+      productId: "p1",
+      quantity: 2,
+      selected_size: "L",
+    });
+
+    // Adding more of Size M increments only Size M
+    store.addItem(cube, 1, "M");
+    expect(useCartStore.getState().items.find((i) => i.id === "p1::M")?.quantity).toBe(2);
+  });
+
+  it("reconciles cart lines with sizes against base product row", () => {
+    const store = freshStore();
+    store.addItem(cube, 1, "XL");
+
+    // Price changed on the product
+    const updatedCube = { ...cube, price: 15.99 };
+    const result = store.reconcile([updatedCube]);
+
+    expect(result.updated).toContain("p1::XL");
+    const item = useCartStore.getState().items.find((i) => i.id === "p1::XL");
+    expect(item?.price).toBe(15.99);
+    expect(item?.selected_size).toBe("XL");
+  });
 });

@@ -13,11 +13,13 @@ import type { Product } from "@/features/catalog/lib/catalog";
 
 export type CartItem = {
   id: string;
+  productId?: string;
   name: string;
   price: number;
   image_url: string;
   stock_quantity: number;
   quantity: number;
+  selected_size?: string;
   /**
    * Set by reconciliation (ADR-0013) when the Product no longer exists or is
    * no longer active. Unavailable lines stay visible so the Customer can see
@@ -35,8 +37,8 @@ export type CartReconcileResult = {
 
 export type CartState = {
   items: CartItem[];
-  /** Adds a Product (or increments an existing line) capped at stock. */
-  addItem: (product: Product, quantity?: number) => void;
+  /** Adds a Product (or increments an existing line) capped at stock, with optional clothing size. */
+  addItem: (product: Product, quantity?: number, selectedSize?: string) => void;
   /** Sets a line's quantity; clamped to [1, stock]. */
   updateQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
@@ -73,19 +75,20 @@ export const useCartStore = create<CartState>()(
       hasHydrated: false,
       setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
 
-      addItem: (product, quantity = 1) =>
+      addItem: (product, quantity = 1, selectedSize) =>
         set((state) => {
           // Never let an out-of-stock Product into the cart as a phantom
           // zero-quantity line — the UI blocks this, but the store is the seam.
           if (product.stock_quantity <= 0) return state;
 
-          const existing = state.items.find((item) => item.id === product.id);
+          const lineId = selectedSize ? `${product.id}::${selectedSize}` : product.id;
+          const existing = state.items.find((item) => item.id === lineId);
           const qty = Math.max(1, Math.floor(quantity));
 
           if (existing) {
             return {
               items: state.items.map((item) =>
-                item.id === product.id
+                item.id === lineId
                   ? {
                       ...item,
                       quantity: Math.min(
@@ -99,12 +102,14 @@ export const useCartStore = create<CartState>()(
           }
 
           const line: CartItem = {
-            id: product.id,
+            id: lineId,
+            productId: product.id,
             name: product.name,
             price: product.price,
             image_url: product.image_url,
             stock_quantity: product.stock_quantity,
             quantity: Math.min(qty, product.stock_quantity),
+            selected_size: selectedSize || undefined,
           };
           return { items: [...state.items, line] };
         }),
@@ -187,7 +192,8 @@ export function reconcileCart(
   const result: CartReconcileResult = { updated: [], unavailable: [] };
 
   const nextItems = items.map((item) => {
-    const product = live.get(item.id);
+    const baseProductId = item.productId || item.id.split("::")[0];
+    const product = live.get(baseProductId);
 
     // Deleted or retired: flag, keep the line visible for removal, and do not
     // touch its snapshot data (it is the only record left of what was bought).

@@ -7,6 +7,10 @@ import {
   getProductById,
   getRelatedProducts,
   searchCatalog,
+  extractProductSizes,
+  cleanProductDescription,
+  encodeProductMetadata,
+  STANDARD_CLOTHING_SIZES,
 } from "./catalog";
 
 const toClient = (mock: MockSupabase) => mock as unknown as SupabaseClient;
@@ -287,5 +291,48 @@ describe("product details (ticket 04)", () => {
     // Verify description is cleaned for consumers
     expect(inUncut.products[0].description).toBe("Comfortable warm hoodie.");
     expect(inUncut.products[0].category_ids).toEqual(["cat-shirts", "cat-uncut"]);
+  });
+});
+
+describe("clothing sizes support", () => {
+  it("defines standard clothing sizes", () => {
+    expect(STANDARD_CLOTHING_SIZES).toContain("XS");
+    expect(STANDARD_CLOTHING_SIZES).toContain("S");
+    expect(STANDARD_CLOTHING_SIZES).toContain("M");
+    expect(STANDARD_CLOTHING_SIZES).toContain("L");
+    expect(STANDARD_CLOTHING_SIZES).toContain("XL");
+    expect(STANDARD_CLOTHING_SIZES).toContain("One Size");
+  });
+
+  it("extracts sizes from explicit sizes array", () => {
+    const product = { sizes: ["S", "M", "L"] };
+    expect(extractProductSizes(product)).toEqual(["S", "M", "L"]);
+  });
+
+  it("extracts sizes from description metadata tags", () => {
+    const product = {
+      description: "Streetwear jacket.\n\n<!--sizes:[\"M\",\"L\",\"XL\"]-->",
+    };
+    expect(extractProductSizes(product)).toEqual(["M", "L", "XL"]);
+  });
+
+  it("extracts legacy parenthesized sizes from product name if no tag exists", () => {
+    expect(extractProductSizes({ name: "AUITTON JOGGERS BLACK (M)" })).toEqual(["M"]);
+    expect(extractProductSizes({ name: "HEAVYWEIGHT HOODIE (XL)" })).toEqual(["XL"]);
+    expect(extractProductSizes({ name: "BOOJY CAP (ONE SIZE)" })).toEqual(["ONE SIZE"]);
+  });
+
+  it("returns empty array when product has no sizes", () => {
+    expect(extractProductSizes({ name: "STICKER PACK", description: "Collect them all" })).toEqual([]);
+  });
+
+  it("encodes sizes into product description and cleans them on extraction", () => {
+    const encoded = encodeProductMetadata("Luxury oversized fit tee.", {
+      sizes: ["S", "M", "L", "XL"],
+    });
+    expect(encoded).toContain('<!--sizes:["S","M","L","XL"]-->');
+
+    const cleaned = cleanProductDescription(encoded);
+    expect(cleaned).toBe("Luxury oversized fit tee.");
   });
 });

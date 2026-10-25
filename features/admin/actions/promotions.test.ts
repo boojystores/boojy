@@ -33,7 +33,7 @@ describe("Promotions Action (Serverless-Safe Persistence)", () => {
     vi.spyOn(fs, "writeFile").mockImplementation(async (targetPath) => {
       if (typeof targetPath === "string" && targetPath.includes("public")) {
         const err = new Error("EROFS: read-only file system, open '/var/task/public/promo-card.json'");
-        (err as Record<string, unknown>).code = "EROFS";
+        (err as unknown as Record<string, unknown>).code = "EROFS";
         throw err;
       }
       return Promise.resolve();

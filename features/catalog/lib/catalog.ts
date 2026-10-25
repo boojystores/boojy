@@ -19,7 +19,19 @@ export type Product = {
   status: ProductStatus;
   category_id: string | null;
   category_ids?: string[];
+  sizes?: string[];
 };
+
+export const STANDARD_CLOTHING_SIZES = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "3XL",
+  "One Size",
+] as const;
 
 export const PRODUCT_COLUMNS =
   "id, name, description, price, stock_quantity, image_url, status, category_id";
@@ -91,24 +103,63 @@ export function extractProductCategories(product: {
 }
 
 /**
- * Remove category and images metadata tags from description for clean display.
+ * Extract clothing sizes for a product:
+ * 1. Explicit `sizes` array if present and populated
+ * 2. Embedded metadata tags in description: <!--sizes:[...]-->
+ * 3. Fallback extraction from product title (e.g. "Joggers Black (M)" -> ["M"])
+ */
+export function extractProductSizes(product: {
+  sizes?: string[] | null;
+  description?: string | null;
+  name?: string | null;
+}): string[] {
+  if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+    const valid = product.sizes.map((s) => String(s).trim()).filter(Boolean);
+    if (valid.length > 0) return Array.from(new Set(valid));
+  }
+  if (product.description) {
+    const match = product.description.match(/<!--sizes:(\[.*?\])-->/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.map((s) => String(s).trim()).filter(Boolean);
+          if (valid.length > 0) return Array.from(new Set(valid));
+        }
+      } catch {}
+    }
+  }
+  // Fallback: detect legacy parenthesized size in name like "Tee Black (L)" or "Hoodie (XL)"
+  if (product.name) {
+    const legacy = product.name.match(/\((XS|S|M|L|XL|XXL|2XL|3XL|One Size)\)/i);
+    if (legacy && legacy[1]) {
+      return [legacy[1].toUpperCase()];
+    }
+  }
+  return [];
+}
+
+/**
+ * Remove category, images, and sizes metadata tags from description for clean display.
  */
 export function cleanProductDescription(description: string | null | undefined): string {
   if (!description) return "";
   return description
     .replace(/\s*<!--categories:\[.*?\]-->/g, "")
     .replace(/\s*<!--images:\[.*?\]-->/g, "")
+    .replace(/\s*<!--sizes:\[.*?\]-->/g, "")
     .trim();
 }
 
 /**
- * Encode multiple categories and/or images into product description metadata.
+ * Encode multiple categories, images, and/or sizes into product description metadata.
  */
 export function encodeProductMetadata(
   description: string | null | undefined,
   options: {
     categoryIds?: string[];
     images?: string[];
+    sizes?: string[];
   } = {},
 ): string | null {
   const base = cleanProductDescription(description);
@@ -125,6 +176,13 @@ export function encodeProductMetadata(
     const uniqueImgs = Array.from(new Set(options.images.map((s) => s.trim()).filter(Boolean)));
     if (uniqueImgs.length > 1) {
       tags.push(`<!--images:${JSON.stringify(uniqueImgs)}-->`);
+    }
+  }
+
+  if (options.sizes) {
+    const uniqueSizes = Array.from(new Set(options.sizes.map((s) => s.trim()).filter(Boolean)));
+    if (uniqueSizes.length > 0) {
+      tags.push(`<!--sizes:${JSON.stringify(uniqueSizes)}-->`);
     }
   }
 

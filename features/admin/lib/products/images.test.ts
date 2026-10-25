@@ -311,10 +311,12 @@ describe("updateProductWithImage (Cloudinary)", () => {
 
     // The newly uploaded file became the #1 Cover photo
     expect(result.product.image_url).toMatch(/cloudinary/);
-    expect(result.product.images).toHaveLength(3);
-    expect(result.product.images[0]).toBe(result.product.image_url);
-    expect(result.product.images[1]).toBe("https://picsum.photos/keep-2.jpg");
-    expect(result.product.images[2]).toBe("https://picsum.photos/keep-1.jpg");
+    expect(result.product.images).toBeDefined();
+    const productImages = result.product.images!;
+    expect(productImages).toHaveLength(3);
+    expect(productImages[0]).toBe(result.product.image_url);
+    expect(productImages[1]).toBe("https://picsum.photos/keep-2.jpg");
+    expect(productImages[2]).toBe("https://picsum.photos/keep-1.jpg");
   });
 });
 

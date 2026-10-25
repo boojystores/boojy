@@ -201,6 +201,7 @@ export async function createProductWithImage(
   const encodedDescription = encodeProductMetadata(input.description, {
     categoryIds: input.category_ids,
     images: allImages,
+    sizes: input.sizes,
   });
 
   const result = await createProduct(client, {
@@ -301,6 +302,7 @@ export async function updateProductWithImage(
   const encodedDescription = encodeProductMetadata(input.description, {
     categoryIds: input.category_ids,
     images: finalImages,
+    sizes: input.sizes,
   });
 
   const result = await updateProduct(client, id, {

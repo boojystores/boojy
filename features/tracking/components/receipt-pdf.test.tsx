@@ -21,20 +21,23 @@ describe("ReceiptDocument", () => {
     expect(doc).toBeDefined();
 
     // Verify document structure contains the expected children
-    const page = React.Children.toArray(doc.props.children)[0] as React.ReactElement;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = React.Children.toArray(doc.props.children)[0] as any;
     expect(page).toBeDefined();
 
-    const header = React.Children.toArray(page.props.children)[0] as React.ReactElement;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const header = React.Children.toArray(page.props.children)[0] as any;
     expect(header).toBeDefined();
 
     // Check header contents (Image logo + tagline)
-    const headerChildren = React.Children.toArray(header.props.children);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const headerChildren = React.Children.toArray(header.props.children) as any[];
     expect(headerChildren).toHaveLength(2);
 
-    const imageElement = headerChildren[0] as React.ReactElement;
+    const imageElement = headerChildren[0];
     expect(imageElement.props.src).toContain("boojy-dark.png");
 
-    const taglineElement = headerChildren[1] as React.ReactElement;
+    const taglineElement = headerChildren[1];
     expect(taglineElement.props.children).toBe("... the limitless lifestyle");
   });
 
@@ -44,9 +47,12 @@ describe("ReceiptDocument", () => {
       logoUrl: "data:image/png;base64,custom-test-logo",
     };
     const doc = ReceiptDocument({ data: customLogoData });
-    const page = React.Children.toArray(doc.props.children)[0] as React.ReactElement;
-    const header = React.Children.toArray(page.props.children)[0] as React.ReactElement;
-    const imageElement = React.Children.toArray(header.props.children)[0] as React.ReactElement;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = React.Children.toArray(doc.props.children)[0] as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const header = React.Children.toArray(page.props.children)[0] as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const imageElement = React.Children.toArray(header.props.children)[0] as any;
     expect(imageElement.props.src).toBe("data:image/png;base64,custom-test-logo");
   });
 });

@@ -15,10 +15,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // Street Drips by Blankids with robust fallbacks
+        // Mona Sans: Ultra-legible modern variable sans for body, forms, UI, and details
         sans: [
-          "var(--font-street-drips)",
-          "StreetDrips",
+          "var(--font-mona-sans)",
+          "Mona Sans",
           "var(--font-geist-sans)",
           "ui-sans-serif",
           "system-ui",
@@ -30,6 +30,7 @@ export default {
           "Arial",
           "sans-serif",
         ],
+        // Street Drips by Blankids for expressive brand headers and hero typography
         display: [
           "var(--font-street-drips-extrude)",
           "StreetDripsExtrude",
@@ -40,6 +41,11 @@ export default {
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
+          "sans-serif",
+        ],
+        brand: [
+          "var(--font-street-drips)",
+          "StreetDrips",
           "sans-serif",
         ],
         extrude: [

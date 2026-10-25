@@ -10,6 +10,7 @@ import {
   GripVertical,
   ImagePlus,
   Loader2,
+  Plus,
   Star,
   UploadCloud,
   X,
@@ -18,6 +19,8 @@ import {
   cleanProductDescription,
   extractProductCategories,
   extractProductImages,
+  extractProductSizes,
+  STANDARD_CLOTHING_SIZES,
   type Category,
   type ProductStatus,
 } from "@/features/catalog/lib/catalog";
@@ -35,6 +38,7 @@ import type { AdminProduct } from "@/features/admin/components/products-manager"
 type FormState = {
   name: string;
   category_ids: string[];
+  sizes: string[];
   price: string;
   stock_quantity: string;
   status: ProductStatus;
@@ -66,11 +70,18 @@ export function ProductFormModal({
         : extractProductCategories(product))
     : [];
 
+  const initialSizes = product
+    ? (product.sizes && product.sizes.length > 0
+        ? product.sizes
+        : extractProductSizes(product))
+    : [];
+
   const initialImages = product ? extractProductImages(product) : [];
 
   const [form, setForm] = useState<FormState>(() => ({
     name: product?.name ?? "",
     category_ids: initialCategoryIds,
+    sizes: initialSizes,
     price: product ? String(product.price) : "",
     stock_quantity: product ? String(product.stock_quantity) : "",
     status: product?.status ?? "active",
@@ -85,6 +96,7 @@ export function ProductFormModal({
     })),
   );
 
+  const [customSizeInput, setCustomSizeInput] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -101,6 +113,10 @@ export function ProductFormModal({
     JSON.stringify([...form.category_ids].sort()) !==
     JSON.stringify([...initialCategoryIds].sort());
 
+  const sizesChanged =
+    JSON.stringify([...form.sizes].sort()) !==
+    JSON.stringify([...initialSizes].sort());
+
   const photosChanged =
     mode === "create"
       ? photos.length > 0
@@ -112,6 +128,7 @@ export function ProductFormModal({
     mode === "create" ||
     form.name !== (product?.name ?? "") ||
     categoriesChanged ||
+    sizesChanged ||
     form.price !== (product ? String(product.price) : "") ||
     form.stock_quantity !== (product ? String(product.stock_quantity) : "") ||
     form.status !== (product?.status ?? "active") ||
@@ -152,6 +169,27 @@ export function ProductFormModal({
         : [...prev.category_ids, categoryId];
       return { ...prev, category_ids: next };
     });
+  }
+
+  function toggleSize(size: string) {
+    setForm((prev) => {
+      const exists = prev.sizes.includes(size);
+      const next = exists ? prev.sizes.filter((s) => s !== size) : [...prev.sizes, size];
+      return { ...prev, sizes: next };
+    });
+  }
+
+  function handleAddCustomSize() {
+    const trimmed = customSizeInput.trim().toUpperCase();
+    if (!trimmed) return;
+    if (!form.sizes.includes(trimmed)) {
+      setForm((prev) => ({ ...prev, sizes: [...prev.sizes, trimmed] }));
+    }
+    setCustomSizeInput("");
+  }
+
+  function handleRemoveSize(size: string) {
+    setForm((prev) => ({ ...prev, sizes: prev.sizes.filter((s) => s !== size) }));
   }
 
   function handleFilesSelected(fileList: FileList | File[] | null) {
@@ -301,6 +339,7 @@ export function ProductFormModal({
     formData.set("status", form.status);
     formData.set("category_ids", form.category_ids.join(","));
     formData.set("category_id", form.category_ids[0] ?? "");
+    formData.set("sizes", form.sizes.join(","));
     if (mode === "edit" && product) {
       formData.set("id", product.id);
     }
@@ -670,6 +709,105 @@ export function ProductFormModal({
                   );
                 })}
               </div>
+            </div>
+
+            {/* Available Sizes Multi-Select & Custom Input */}
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Available Sizes</Label>
+                <span className="text-xs text-muted-foreground">
+                  {form.sizes.length === 0
+                    ? "None (no size selection on storefront)"
+                    : `${form.sizes.length} selected`}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tick standard sizes or type custom sizes below. Customers will choose their fit before adding to bag.
+              </p>
+
+              {/* Standard Size Quick Toggle Buttons */}
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {STANDARD_CLOTHING_SIZES.map((size) => {
+                  const isSelected = form.sizes.includes(size);
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => toggleSize(size)}
+                      className={cn(
+                        "flex items-center gap-1.5 border px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all",
+                        isSelected
+                          ? "border-foreground bg-foreground text-background shadow-xs font-bold"
+                          : "border-border bg-background text-muted-foreground hover:border-foreground/50 hover:text-foreground",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-3 w-3 items-center justify-center border",
+                          isSelected
+                            ? "border-background bg-background text-foreground"
+                            : "border-muted-foreground/40",
+                        )}
+                      >
+                        {isSelected && <Check className="h-2.5 w-2.5 stroke-[2.5]" />}
+                      </div>
+                      <span>{size}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Size Adder */}
+              <div className="mt-3 flex items-center gap-2">
+                <Input
+                  value={customSizeInput}
+                  onChange={(e) => setCustomSizeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddCustomSize();
+                    }
+                  }}
+                  placeholder="Add custom size (e.g. UK 10, 32x30, 42)..."
+                  className="h-8 max-w-xs text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddCustomSize}
+                  disabled={!customSizeInput.trim()}
+                  className="h-8 px-2.5 text-xs font-medium"
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Add Size
+                </Button>
+              </div>
+
+              {/* Currently Selected Sizes Pills Strip */}
+              {form.sizes.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-sm border border-dashed border-border p-2 bg-muted/20">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+                    Active sizes:
+                  </span>
+                  {form.sizes.map((size) => (
+                    <span
+                      key={size}
+                      className="inline-flex items-center gap-1 bg-background border border-border px-2 py-0.5 text-xs font-medium text-foreground rounded-none shadow-2xs"
+                    >
+                      {size}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSize(size)}
+                        title={`Remove ${size}`}
+                        className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Visibility Status */}

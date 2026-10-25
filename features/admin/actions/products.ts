@@ -61,6 +61,26 @@ function parseProductForm(
   const category_id = category_ids[0] ?? null;
   const encodedDescription = encodeDescriptionCategories(description, category_ids);
 
+  const rawSizes = formData.getAll("sizes").map(String);
+  let sizes: string[] = [];
+  if (rawSizes.length > 0) {
+    sizes = rawSizes
+      .flatMap((v) => v.split(","))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  const singleSizesRaw = String(formData.get("sizes") ?? "").trim();
+  if (singleSizesRaw && sizes.length === 0) {
+    try {
+      const parsed = JSON.parse(singleSizesRaw);
+      if (Array.isArray(parsed)) {
+        sizes = parsed.map(String).map((s) => s.trim()).filter(Boolean);
+      }
+    } catch {
+      sizes = singleSizesRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   const existingImages = formData
     .getAll("existing_images")
     .map(String)
@@ -106,6 +126,7 @@ function parseProductForm(
       status,
       category_id,
       category_ids,
+      sizes,
       image_url: "",
     },
     existingImages,

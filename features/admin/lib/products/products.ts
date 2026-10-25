@@ -24,6 +24,7 @@ export type ProductInput = {
   status: ProductStatus;
   category_id: string | null;
   category_ids?: string[];
+  sizes?: string[];
   image_url: string;
   images?: string[];
 };
