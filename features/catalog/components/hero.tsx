@@ -10,16 +10,19 @@ const SLIDES = [
     title: "New Drops",
     description: "Exclusive streetwear drops, tailored fits, and luxury apparel just landed.",
     image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935964/adele-shafiee-vagr_XT9Cms-unsplash.jpg",
+    position: "center 15%",
   },
   {
     title: "Seasonal Sale",
     description: "Up to 20% off selected luxury pieces — limited time only.",
     image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935962/mcfollis-nIs-xAS752k-unsplash.jpg",
+    position: "center 22%",
   },
   {
     title: "Limited Edition",
     description: "Bespoke cuts and statement streetwear for the bold.",
     image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935958/kam-myers-V0u6h6BHwLU-unsplash.jpg",
+    position: "center 28%",
   },
 ];
 
@@ -50,59 +53,51 @@ export function Hero() {
 
   return (
     <section className="relative overflow-hidden flex flex-col justify-end h-[85vh] min-h-[85vh] md:h-[calc(100vh-5rem)] md:min-h-[calc(100vh-5rem)]">
-      {/* Rotating background slides */}
+      {/* Rotating background slides — no zoom, standard sizing, custom focal alignment */}
       <div className="absolute inset-0 -z-30">
         {SLIDES.map((slide, index) => (
           <div
             key={index}
             aria-hidden={index !== current}
             className={cn(
-              "absolute inset-0 bg-cover bg-center transition-opacity duration-1000",
+              "absolute inset-0 bg-cover transition-opacity duration-1000",
               index === current
-                ? "opacity-100 scale-100"
-                : "opacity-0 scale-105",
+                ? "opacity-100"
+                : "opacity-0 pointer-events-none",
             )}
             style={{
               backgroundImage: `url(${slide.image})`,
-              transition: "opacity 1s ease, transform 6s ease",
+              backgroundPosition: slide.position,
+              transition: "opacity 1s ease",
             }}
           />
         ))}
       </div>
 
-      {/* Gradient overlay — adapts to theme, darker at bottom for text legibility */}
-      <div className="absolute inset-0 -z-20 bg-gradient-to-t from-background via-background/70 to-background/20 dark:from-background dark:via-background/70 dark:to-transparent" />
-
-      {/* Faint lattice — background accent */}
-      <div
-        aria-hidden
-        className="bg-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_55%_55%_at_50%_30%,black,transparent)]"
-      />
-
       {/* Write-ups & CTA anchored at bottom */}
       <div className="site-container relative z-10 flex flex-col items-center justify-end gap-3 sm:gap-4 pb-12 sm:pb-14 text-center mt-auto">
-        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-4xl">
+        <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-4xl text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
           ...the{" "}
-          <span className="bg-gradient-to-br from-primary to-purple-600 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-br from-white via-purple-300 to-purple-400 bg-clip-text text-transparent drop-shadow-sm">
             limitless
           </span>{" "}
           lifestyle
         </h1>
 
-        <p className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-foreground/80">
+        <p className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-white/95 font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.85)]">
           Curated streetwear, premium joggers, bespoke hoodies, and timeless essentials —
           designed for effortless expression.
         </p>
 
         <div className="flex w-full justify-center sm:w-auto pt-1">
-          <Button asChild size="lg" className="w-full sm:w-auto px-8 h-12 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-md">
+          <Button asChild size="lg" className="w-full sm:w-auto px-8 h-12 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-lg bg-black text-white hover:bg-neutral-800">
             <Link href="/products">Explore Collection</Link>
           </Button>
         </div>
       </div>
 
       {/* Slide indicators */}
-      <div className="absolute bottom-3 sm:bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+      <div className="absolute bottom-3 sm:bottom-4 left-1/2 flex -translate-x-1/2 gap-2 z-20">
         {SLIDES.map((_, index) => (
           <button
             key={index}
@@ -111,10 +106,10 @@ export function Hero() {
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === current ? "true" : undefined}
             className={cn(
-              "h-2 rounded-full transition-all duration-300",
+              "h-2 rounded-full transition-all duration-300 shadow-sm",
               index === current
-                ? "w-6 bg-primary"
-                : "w-2 bg-muted-foreground/40 hover:bg-muted-foreground/60",
+                ? "w-6 bg-white"
+                : "w-2 bg-white/50 hover:bg-white/80",
             )}
           />
         ))}
