@@ -9,17 +9,17 @@ const SLIDES = [
   {
     title: "New Drops",
     description: "Exclusive streetwear drops, tailored fits, and luxury apparel just landed.",
-    image: "https://images.unsplash.com/photo-1577401239170-897942555fb3?w=1400&h=700&fit=crop",
+    image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935964/adele-shafiee-vagr_XT9Cms-unsplash.jpg",
   },
   {
     title: "Seasonal Sale",
     description: "Up to 20% off selected luxury pieces — limited time only.",
-    image: "https://images.unsplash.com/photo-1560343776-97e7d202ff0e?w=1400&h=700&fit=crop",
+    image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935962/mcfollis-nIs-xAS752k-unsplash.jpg",
   },
   {
     title: "Limited Edition",
     description: "Bespoke cuts and statement streetwear for the bold.",
-    image: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=1400&h=700&fit=crop",
+    image: "https://res.cloudinary.com/hvs9rbao/image/upload/v1792935958/kam-myers-V0u6h6BHwLU-unsplash.jpg",
   },
 ];
 

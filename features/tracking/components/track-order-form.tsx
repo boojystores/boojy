@@ -174,7 +174,7 @@ export function TrackOrderForm() {
 
           {/* Order Summary */}
           <div className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-6">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <h3 className="mb-4 font-sans text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Order summary
             </h3>
             <ul className="divide-y divide-border">

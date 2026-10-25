@@ -64,7 +64,7 @@ export function ProductCard({
             {categoryName}
           </p>
         )}
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug">
+        <h3 className="line-clamp-2 font-sans text-sm font-medium leading-snug">
           {product.name}
         </h3>
         <p className="mt-auto pt-1 font-display text-base font-bold tabular-nums">

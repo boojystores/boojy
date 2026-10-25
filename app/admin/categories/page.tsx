@@ -15,7 +15,7 @@ export default async function AdminCategoriesPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Categories</h1>
         <p className="mt-1 text-muted-foreground">
           Organise the catalog. Changes appear in the storefront immediately.
         </p>

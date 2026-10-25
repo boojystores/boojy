@@ -113,12 +113,17 @@
     overflow-x: clip;
   }
 
-  /* Street Drips Extrude & display headings:
-     Because of the 3D extrude drop-shadow, Street Drips characters and words
-     need generous space so words don't blur together. */
+  /* Street Drips font for headings across storefront and dashboard (excluding elements explicitly styled with font-sans) */
+  h1:not(.font-sans),
+  h2:not(.font-sans),
+  h3:not(.font-sans),
+  h4:not(.font-sans),
+  h5:not(.font-sans),
+  h6:not(.font-sans),
   .font-display,
   .font-extrude,
   .font-brand {
+    font-family: var(--font-street-drips-extrude), StreetDripsExtrude, var(--font-street-drips), StreetDrips, sans-serif;
     letter-spacing: 0.06em;
     word-spacing: 0.35em;
   }

@@ -19,7 +19,7 @@ export default async function AdminProductsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Products</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Products</h1>
         <p className="mt-1 text-muted-foreground">
           Manage the catalog. Availability comes from stock — status only
           controls storefront visibility.

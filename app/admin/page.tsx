@@ -55,7 +55,7 @@ export default async function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="mt-1 text-muted-foreground">
           Overview of the store, updated live as Customers place orders.
         </p>

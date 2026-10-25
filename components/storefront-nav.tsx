@@ -10,10 +10,10 @@ export function StorefrontNav() {
   const isTrack = pathname === "/track";
 
   return (
-    <nav className="hidden items-center gap-5 md:flex lg:gap-8" aria-label="Store">
+    <nav className="hidden items-center gap-5 md:flex lg:gap-8 font-display" aria-label="Store">
       <Link
         href="/"
-        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground ${
+        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground font-display ${
           isHome
             ? "text-foreground font-extrabold"
             : "text-muted-foreground/80 hover:text-foreground"
@@ -23,7 +23,7 @@ export function StorefrontNav() {
       </Link>
       <Link
         href="/products"
-        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground ${
+        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground font-display ${
           isProducts
             ? "text-foreground font-extrabold"
             : "text-muted-foreground/80 hover:text-foreground"
@@ -33,7 +33,7 @@ export function StorefrontNav() {
       </Link>
       <Link
         href="/track"
-        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground ${
+        className={`relative text-sm md:text-base lg:text-lg font-bold uppercase tracking-wider transition-colors hover:text-foreground font-display ${
           isTrack
             ? "text-foreground font-extrabold"
             : "text-muted-foreground/80 hover:text-foreground"

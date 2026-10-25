@@ -104,7 +104,7 @@ export function StorefrontDrawer() {
                 </button>
               </div>
 
-              <nav className="flex flex-col gap-1">
+              <nav className="flex flex-col gap-1 font-display">
                 {drawerLinks.map((link) => {
                   const active =
                     link.href === "/"
@@ -115,7 +115,7 @@ export function StorefrontDrawer() {
                       key={link.href}
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className={`flex items-center justify-between rounded-none px-3 py-3 text-lg sm:text-xl font-bold uppercase tracking-wider transition-colors ${active ? "bg-muted text-foreground font-extrabold" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                      className={`flex items-center justify-between rounded-none px-3 py-3 text-lg sm:text-xl font-bold uppercase tracking-wider transition-colors font-display ${active ? "bg-muted text-foreground font-extrabold" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                     >
                       {link.label}
                     </Link>

@@ -17,7 +17,7 @@ export function KpiCard({
           <Icon className="h-4 w-4 text-foreground" />
         </span>
       </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+      <p className="mt-3 font-display text-3xl font-bold tracking-tight">{value}</p>
     </div>
   );
 }

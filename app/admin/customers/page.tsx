@@ -28,7 +28,7 @@ export default async function AdminCustomersPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Customers</h1>
         <p className="mt-1 text-muted-foreground">
           Order counts and total spend are computed live — cancelled orders are
           excluded from both.

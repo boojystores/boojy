@@ -23,7 +23,7 @@ export function SiteFooter() {
 
           {/* Shop */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h3 className="font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Shop
             </h3>
             <nav className="flex flex-col gap-1.5" aria-label="Footer shop links">
@@ -62,7 +62,7 @@ export function SiteFooter() {
 
           {/* Contact */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h3 className="font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Contact
             </h3>
             <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ export function SiteFooter() {
 
           {/* Follow */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h3 className="font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Follow us
             </h3>
             <div className="flex flex-col gap-1.5">
