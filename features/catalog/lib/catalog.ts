@@ -400,6 +400,7 @@ export async function searchCatalog(
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
     images: extractProductImages(p),
+    sizes: extractProductSizes(p),
   }));
   const total = count ?? products.length;
 
@@ -435,6 +436,7 @@ export async function getProductById(
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
     images: extractProductImages(p),
+    sizes: extractProductSizes(p),
   };
 }
 
@@ -467,5 +469,6 @@ export async function getRelatedProducts(
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
     images: extractProductImages(p),
+    sizes: extractProductSizes(p),
   }));
 }

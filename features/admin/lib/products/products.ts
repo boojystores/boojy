@@ -3,6 +3,7 @@ import {
   cleanProductDescription,
   extractProductCategories,
   extractProductImages,
+  extractProductSizes,
   PRODUCT_COLUMNS,
   type Product,
   type ProductStatus,
@@ -114,6 +115,7 @@ export async function listAdminProducts(
             ? (names.get(product.category_id) ?? null)
             : null,
       images: extractProductImages(product),
+      sizes: extractProductSizes(product),
     };
   });
 }
@@ -125,6 +127,7 @@ export async function createProduct(
   const payload = { ...input };
   delete payload.category_ids;
   delete payload.images;
+  delete payload.sizes;
   const { data, error } = await client
     .from("products")
     .insert(payload)
@@ -142,6 +145,7 @@ export async function createProduct(
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
       images: extractProductImages(p),
+      sizes: extractProductSizes(p),
     },
   };
 }
@@ -163,6 +167,7 @@ export async function updateProduct(
   const payload = { ...input };
   delete payload.category_ids;
   delete payload.images;
+  delete payload.sizes;
   const { data, error } = await client
     .from("products")
     .update(payload)
@@ -181,6 +186,7 @@ export async function updateProduct(
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
       images: extractProductImages(p),
+      sizes: extractProductSizes(p),
     },
   };
 }

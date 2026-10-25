@@ -144,4 +144,24 @@ describe("admin products (ticket 09)", () => {
     expect(result.message.length).toBeGreaterThan(0);
     expect(supabase.db.products).toHaveLength(3); // nothing inserted
   });
+
+  it("does not pass virtual fields (sizes, category_ids, images) to products table on create", async () => {
+    const supabase = createMockSupabase({ products: [], categories });
+    const result = await createProduct(toClient(supabase), {
+      ...input,
+      category_ids: ["c1", "c2"],
+      images: ["https://example.com/1.jpg", "https://example.com/2.jpg"],
+      sizes: ["M", "L"],
+      description: 'Tee\n\n<!--sizes:["M","L"]-->',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.product.sizes).toEqual(["M", "L"]);
+
+    const inserted = supabase.db.products[0] as Record<string, unknown>;
+    expect(inserted.sizes).toBeUndefined();
+    expect(inserted.category_ids).toBeUndefined();
+    expect(inserted.images).toBeUndefined();
+  });
 });
