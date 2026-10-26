@@ -183,6 +183,7 @@ export function CheckoutView({
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
 
   const [redirectSession, setRedirectSession] = useState<{
+    orderId: string;
     checkoutUrl: string;
     orderNumber: string;
     totalAmount: number;
@@ -395,6 +396,7 @@ export function CheckoutView({
       if (response.ok) {
         if (response.checkoutUrl) {
           const targetUrl = response.checkoutUrl;
+          const orderId = response.orderId;
 
           // Clear cart now that order is placed
           clearCart();
@@ -405,7 +407,7 @@ export function CheckoutView({
               "boojy_pending_order",
               JSON.stringify({
                 orderNumber: response.orderNumber,
-                orderId: response.orderId,
+                orderId,
                 totalAmount: response.totalAmount,
                 checkoutUrl: targetUrl,
               }),
@@ -414,13 +416,14 @@ export function CheckoutView({
 
           // Display redirecting state immediately so user gets clear visual feedback
           setRedirectSession({
+            orderId,
             checkoutUrl: targetUrl,
             orderNumber: response.orderNumber,
             totalAmount: response.totalAmount,
           });
 
-          // Perform robust, multi-tier cross-browser navigation
-          navigateToPaymentGateway(targetUrl);
+          // Perform robust, same-origin server redirect bridge navigation
+          navigateToPaymentGateway(targetUrl, orderId);
           return;
         }
 
@@ -1180,19 +1183,14 @@ function EmptyCheckout() {
 function PaymentGatewayHandoffView({
   session,
 }: {
-  session: { checkoutUrl: string; orderNumber: string; totalAmount: number };
+  session: { orderId: string; checkoutUrl: string; orderNumber: string; totalAmount: number };
 }) {
+  const payUrl = `/api/checkout/pay?order_id=${encodeURIComponent(session.orderId)}`;
+
   useEffect(() => {
-    // Attempt navigation immediately on mount
-    navigateToPaymentGateway(session.checkoutUrl);
-
-    // Watchdog: If Safari / WebKit stalls or blocks the initial dispatch, retry every 1.5s
-    const interval = setInterval(() => {
-      navigateToPaymentGateway(session.checkoutUrl);
-    }, 1500);
-
-    return () => clearInterval(interval);
-  }, [session.checkoutUrl]);
+    // Navigate via the same-origin server redirect bridge immediately on mount
+    navigateToPaymentGateway(session.checkoutUrl, session.orderId);
+  }, [session.checkoutUrl, session.orderId]);
 
   return (
     <div className="site-container py-16 sm:py-24">
@@ -1218,13 +1216,7 @@ function PaymentGatewayHandoffView({
 
         <div className="mt-8 space-y-3">
           <a
-            href={session.checkoutUrl}
-            target="_top"
-            rel="noreferrer noopener"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateToPaymentGateway(session.checkoutUrl);
-            }}
+            href={payUrl}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Proceed to Payment</span>

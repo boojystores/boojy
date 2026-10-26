@@ -346,6 +346,9 @@ export async function submitCheckout(input: {
           payment_reference: orderResult.orderId,
           payment_provider: "bachs",
           payment_status: "pending",
+          payment_metadata: {
+            checkout_url: session.checkout_url,
+          },
         })
         .eq("id", orderResult.orderId);
 
