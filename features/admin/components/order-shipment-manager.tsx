@@ -181,7 +181,7 @@ export function OrderShipmentManager({
         {/* Rider Assignment (Direct Dispatch) */}
         <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-3">
           <p className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
-            <User className="h-3.5 w-3.5 text-primary" /> Boojy Dispatcher / Rider Assignment
+            <User className="h-3.5 w-3.5 text-primary" /> Dispatch Rider Assignment
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { assertAdmin } from "@/lib/auth/assert-admin";
 import {
   createProductWithImage,
   deleteProductWithImage,
@@ -137,6 +138,7 @@ function parseProductForm(
 export async function createProductAction(
   formData: FormData,
 ): Promise<ProductMutationResult> {
+  await assertAdmin();
   const supabase = await createClient();
   const { input, error } = parseProductForm(formData);
   if (error || !input) {
@@ -160,6 +162,7 @@ export async function createProductAction(
 export async function updateProductAction(
   formData: FormData,
 ): Promise<ProductMutationResult> {
+  await assertAdmin();
   const supabase = await createClient();
   const id = String(formData.get("id") ?? "");
   const { input, existingImages, imageOrder, error } = parseProductForm(formData);
@@ -182,6 +185,7 @@ export async function updateProductAction(
 export async function deleteProductAction(
   id: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  await assertAdmin();
   const supabase = await createClient();
   return deleteProductWithImage(supabase, id);
 }
@@ -190,6 +194,7 @@ export async function toggleProductStatusAction(
   id: string,
   status: ProductStatus,
 ): Promise<ProductMutationResult> {
+  await assertAdmin();
   const supabase = await createClient();
   return updateProductStatus(supabase, id, status);
 }

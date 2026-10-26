@@ -5,6 +5,7 @@ import path from "path";
 import os from "os";
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertAdmin } from "@/lib/auth/assert-admin";
 import {
   DEFAULT_PROMO_CONFIG,
   type PromoCardConfig,
@@ -64,6 +65,12 @@ export async function getPromoConfig(): Promise<PromoCardConfig> {
 export async function savePromoConfig(
   config: PromoCardConfig,
 ): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await assertAdmin();
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Unauthorized." };
+  }
+
   let fileSaved = false;
 
   // Update in-memory cache immediately

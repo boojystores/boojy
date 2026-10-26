@@ -1,6 +1,6 @@
 "use client";
 
-import { Truck, Clock, ShieldAlert, CheckCircle2, Store } from "lucide-react";
+import { Package, Clock, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { priceFormatter } from "@/lib/currency";
 import type { ShippingOption } from "../types";
@@ -14,6 +14,23 @@ interface ShippingMethodSelectorProps {
   destinationSummary?: string;
 }
 
+function getCleanDeliveryName(opt: ShippingOption, totalOptions: number): string {
+  if (opt.methodId === "express" || opt.methodName.toLowerCase().includes("express")) {
+    return "Express Delivery";
+  }
+  if (totalOptions > 1) {
+    return "Standard Delivery";
+  }
+  return "Delivery";
+}
+
+function getCleanDeliveryDesc(opt: ShippingOption): string {
+  if (opt.methodId === "express" || opt.methodName.toLowerCase().includes("express")) {
+    return "Priority delivery to your doorstep";
+  }
+  return "Direct delivery to your doorstep";
+}
+
 export function ShippingMethodSelector({
   options,
   selectedMethodId,
@@ -22,15 +39,18 @@ export function ShippingMethodSelector({
   hasDestination,
   destinationSummary,
 }: ShippingMethodSelectorProps) {
+  // Only display delivery/shipping options (Pickup is handled by the top-level toggle)
+  const deliveryOptions = options.filter((o) => o.methodType !== "pickup");
+
   if (!hasDestination) {
     return (
-      <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-6 text-center">
-        <Truck className="mx-auto h-8 w-8 text-muted-foreground/60" />
-        <p className="mt-2 text-sm font-medium text-foreground">
-          Select Delivery Destination
+      <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
+        <Package className="mx-auto h-6 w-6 text-muted-foreground/60" />
+        <p className="mt-2 text-xs font-medium text-foreground">
+          Enter Your Delivery Address Above
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Choose your State and Local Government Area above to view available delivery methods and exact pricing.
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Select your state and LGA to view your exact delivery fee.
         </p>
       </div>
     );
@@ -38,29 +58,26 @@ export function ShippingMethodSelector({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border/60 bg-card/20 p-6 text-center animate-pulse">
-        <div className="mx-auto h-6 w-32 rounded bg-muted" />
-        <div className="mt-4 space-y-2">
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Calculating verified delivery rates…
+      <div className="rounded-xl border border-border/60 bg-card/20 p-4 text-center animate-pulse">
+        <div className="mx-auto h-4 w-28 rounded bg-muted" />
+        <div className="mt-3 h-12 w-full rounded-lg bg-muted/50" />
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Calculating delivery fee…
         </p>
       </div>
     );
   }
 
-  if (options.length === 0) {
+  if (deliveryOptions.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-700 dark:text-amber-400">
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 dark:text-amber-400">
+        <div className="flex items-start gap-2.5">
+          <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-sm">Delivery Currently Unavailable</h3>
-            <p className="mt-1 text-xs leading-relaxed opacity-90">
+            <h3 className="font-semibold text-xs">Delivery Unavailable</h3>
+            <p className="mt-0.5 text-[11px] leading-relaxed opacity-90">
               We do not currently offer automated delivery to {destinationSummary || "the selected location"}.
-              Please check your address or contact customer support on WhatsApp for custom courier arrangements.
+              You can choose Store Pickup or contact support on WhatsApp.
             </p>
           </div>
         </div>
@@ -69,56 +86,50 @@ export function ShippingMethodSelector({
   }
 
   return (
-    <div className="space-y-3" role="radiogroup" aria-label="Available delivery methods">
-      {options.map((opt) => {
+    <div className="space-y-2.5" role="radiogroup" aria-label="Delivery options">
+      {deliveryOptions.map((opt) => {
         const isSelected = opt.methodId === selectedMethodId;
-        const Icon = opt.methodType === "pickup" ? Store : Truck;
+        const displayName = getCleanDeliveryName(opt, deliveryOptions.length);
+        const displayDesc = getCleanDeliveryDesc(opt);
 
         return (
           <label
             key={opt.methodId}
             onClick={() => onSelect(opt)}
             className={cn(
-              "flex cursor-pointer items-start justify-between gap-4 rounded-xl border p-4 transition-all duration-200",
+              "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 transition-all duration-200",
               isSelected
                 ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30"
                 : "border-border/60 bg-card/10 hover:border-border hover:bg-card/20",
             )}
           >
-            <div className="flex items-start gap-3.5">
+            <div className="flex items-center gap-3">
               <input
                 type="radio"
                 name="shippingOption"
                 checked={isSelected}
                 onChange={() => onSelect(opt)}
-                className="mt-1 h-4 w-4 accent-primary"
+                className="h-4 w-4 accent-primary"
               />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-foreground">
-                    {opt.methodName}
+                    {displayName}
                   </span>
                   {opt.isFree && (
                     <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      Free Shipping
-                    </span>
-                  )}
-                  {opt.scope === "zone" && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      Zone Rate
+                      Free Delivery
                     </span>
                   )}
                 </div>
 
-                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                  {opt.description}
-                </p>
-
-                <div className="mt-2 flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{displayDesc}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <Clock className="h-3 w-3" />
                     {opt.estimatedMinDays === 0
-                      ? "Same day / Available immediately"
+                      ? "Same day"
                       : `${opt.estimatedMinDays}–${opt.estimatedMaxDays} business days`}
                   </span>
                 </div>

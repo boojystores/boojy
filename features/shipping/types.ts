@@ -38,7 +38,26 @@ export interface DeliveryZone {
   lga_id?: string | null;
   name: string;
   aliases?: string[];
+  base_price_kobo?: number | null;
+  estimated_days?: string | null;
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PickupLocation {
+  id: string;
+  name: string;
+  address: string;
+  landmark?: string | null;
+  city: string;
+  state_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  operating_hours?: string | null;
+  instructions?: string | null;
+  is_active: boolean;
+  display_order: number;
   created_at?: string;
   updated_at?: string;
 }

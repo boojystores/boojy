@@ -359,9 +359,9 @@ BEGIN
         )));
     END IF;
 
-    IF NOT v_product.is_active THEN
+    IF v_product.status <> 'active' THEN
       RETURN jsonb_build_object('ok', false, 'code', 'PRODUCT_UNAVAILABLE',
-        'message', 'A product in your cart has been retired.',
+        'message', format('"%s" is no longer available.', v_product.name),
         'items', jsonb_build_array(jsonb_build_object(
           'product_id', v_product.id,
           'name', v_product.name,
@@ -369,12 +369,12 @@ BEGIN
         )));
     END IF;
 
-    IF v_product.stock < v_item.quantity THEN
+    IF v_product.stock_quantity < v_item.quantity THEN
       v_issues := v_issues || jsonb_build_object(
         'product_id', v_product.id,
         'name', v_product.name,
         'requested', v_item.quantity,
-        'available', v_product.stock
+        'available', v_product.stock_quantity
       );
     END IF;
 
@@ -508,8 +508,7 @@ BEGIN
     );
 
     UPDATE public.products
-    SET stock = stock - v_item.quantity,
-        updated_at = now()
+    SET stock_quantity = stock_quantity - v_item.quantity
     WHERE id = v_product.id;
   END LOOP;
 
@@ -540,57 +539,68 @@ ALTER TABLE public.shipping_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shipment_logs ENABLE ROW LEVEL SECURITY;
 
 -- Public reads for storefront checkout
+DROP POLICY IF EXISTS "Public can view active states" ON public.states;
 CREATE POLICY "Public can view active states"
   ON public.states FOR SELECT
   USING (is_active = true OR (auth.role() = 'authenticated' AND public.is_admin()));
 
+DROP POLICY IF EXISTS "Public can view active lgas" ON public.lgas;
 CREATE POLICY "Public can view active lgas"
   ON public.lgas FOR SELECT
   USING (is_active = true OR (auth.role() = 'authenticated' AND public.is_admin()));
 
+DROP POLICY IF EXISTS "Public can view active delivery zones" ON public.delivery_zones;
 CREATE POLICY "Public can view active delivery zones"
   ON public.delivery_zones FOR SELECT
   USING (is_active = true OR (auth.role() = 'authenticated' AND public.is_admin()));
 
+DROP POLICY IF EXISTS "Public can view active shipping methods" ON public.shipping_methods;
 CREATE POLICY "Public can view active shipping methods"
   ON public.shipping_methods FOR SELECT
   USING (is_active = true OR (auth.role() = 'authenticated' AND public.is_admin()));
 
+DROP POLICY IF EXISTS "Public can view active shipping rates" ON public.shipping_rates;
 CREATE POLICY "Public can view active shipping rates"
   ON public.shipping_rates FOR SELECT
   USING (is_active = true OR (auth.role() = 'authenticated' AND public.is_admin()));
 
 -- Admin write policies
+DROP POLICY IF EXISTS "Admins have full access to states" ON public.states;
 CREATE POLICY "Admins have full access to states"
   ON public.states FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins have full access to lgas" ON public.lgas;
 CREATE POLICY "Admins have full access to lgas"
   ON public.lgas FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins have full access to delivery zones" ON public.delivery_zones;
 CREATE POLICY "Admins have full access to delivery zones"
   ON public.delivery_zones FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins have full access to shipping methods" ON public.shipping_methods;
 CREATE POLICY "Admins have full access to shipping methods"
   ON public.shipping_methods FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins have full access to shipping rates" ON public.shipping_rates;
 CREATE POLICY "Admins have full access to shipping rates"
   ON public.shipping_rates FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins have full access to shipment logs" ON public.shipment_logs;
 CREATE POLICY "Admins have full access to shipment logs"
   ON public.shipment_logs FOR ALL
   TO authenticated

@@ -5,6 +5,7 @@ import path from "path";
 import os from "os";
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertAdmin } from "@/lib/auth/assert-admin";
 import {
   DEFAULT_PAYMENT_METHODS,
   type PaymentMethodConfig,
@@ -75,6 +76,12 @@ export async function getPaymentMethodsConfig(): Promise<PaymentMethodConfig[]> 
 export async function savePaymentMethodsConfig(
   methods: PaymentMethodConfig[],
 ): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await assertAdmin();
+  } catch (err: any) {
+    return { ok: false, message: err?.message || "Unauthorized." };
+  }
+
   memoryCache = methods;
 
   // 1. Save to Supabase store_settings (primary persistent store across serverless instances)

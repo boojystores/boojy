@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { assertAdmin } from "@/lib/auth/assert-admin";
 import {
   transitionOrderStatus,
   type OrderStatus,
@@ -17,6 +18,7 @@ export async function transitionOrderStatusAction(
   orderId: string,
   status: OrderStatus,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  await assertAdmin();
   const supabase = await createClient();
   const result = await transitionOrderStatus(supabase, orderId, status);
   if (result.ok) {

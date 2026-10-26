@@ -27,6 +27,32 @@ const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const PAYMENT_METHODS: PaymentMethod[] = ["ewallet", "bank_transfer", "bachs"];
 
+// Sliding window rate limiter: max 5 requests per 60 seconds per IP address
+const ipRateLimits = new Map<string, number[]>();
+
+function checkRateLimit(ip: string, maxRequests = 5, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const timestamps = (ipRateLimits.get(ip) || []).filter((ts) => now - ts < windowMs);
+  
+  if (timestamps.length >= maxRequests) {
+    return false;
+  }
+  
+  timestamps.push(now);
+  ipRateLimits.set(ip, timestamps);
+  return true;
+}
+
+// Defensive input sanitization: strips HTML tags and non-printable control characters
+function sanitizeInput(str?: string | null, maxLength = 300): string {
+  if (!str || typeof str !== "string") return "";
+  return str
+    .replace(/[<>]/g, "")
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+    .trim()
+    .slice(0, maxLength);
+}
+
 export type CheckoutActionResponse = PlaceOrderResult;
 
 export async function submitCheckout(input: {
@@ -34,6 +60,36 @@ export async function submitCheckout(input: {
   items: CheckoutLineInput[];
 }): Promise<CheckoutActionResponse> {
   const { details, items } = input;
+
+  // Rate limiting check
+  let clientIp = "127.0.0.1";
+  try {
+    const headersList = await headers();
+    const forwardedFor = headersList.get("x-forwarded-for");
+    clientIp = headersList.get("x-real-ip") || (forwardedFor ? forwardedFor.split(",")[0].trim() : "127.0.0.1");
+  } catch {
+    // Fallback when called outside a Next.js request context (e.g. unit tests)
+    clientIp = "127.0.0.1";
+  }
+
+  if (!checkRateLimit(clientIp)) {
+    return {
+      ok: false,
+      code: "VALIDATION",
+      message: "Too many checkout requests. Please wait a moment before trying again.",
+    };
+  }
+
+  // Defensive field sanitization
+  if (details) {
+    if (details.fullName) details.fullName = sanitizeInput(details.fullName, 100);
+    if (details.deliveryAddress) details.deliveryAddress = sanitizeInput(details.deliveryAddress, 300);
+    if (details.streetAddress) details.streetAddress = sanitizeInput(details.streetAddress, 300);
+    if (details.landmark) details.landmark = sanitizeInput(details.landmark, 150);
+    if (details.notes) details.notes = sanitizeInput(details.notes, 500);
+    if (details.recipientName) details.recipientName = sanitizeInput(details.recipientName, 100);
+    if (details.cityName) details.cityName = sanitizeInput(details.cityName, 100);
+  }
 
   // --- server-side form validation (authoritative, ADR-0004 — the client
   // pass is convenience only). ---
@@ -97,7 +153,11 @@ export async function submitCheckout(input: {
       };
     }
   }
-  if (
+  if (details.shippingMethodId === "pickup") {
+    if (!details.deliveryAddress || !details.deliveryAddress.trim()) {
+      details.deliveryAddress = "Store Pickup — Boojy Flagship Store, Victoria Island, Lagos";
+    }
+  } else if (
     typeof details.deliveryAddress !== "string" ||
     !details.deliveryAddress.trim()
   ) {
@@ -170,7 +230,15 @@ export async function submitCheckout(input: {
   let verifiedShippingFeeKobo = 0;
   let verifiedShippingMethodName: string | undefined;
 
-  if (details.stateId) {
+  if (details.shippingMethodId === "pickup") {
+    verifiedShippingFeeKobo = 0;
+    verifiedShippingMethodName = "Store Pickup";
+    details.shippingFeeKobo = 0;
+    details.shippingMethodId = "pickup";
+    if (!details.deliveryAddress || !details.deliveryAddress.trim()) {
+      details.deliveryAddress = "Store Pickup — Boojy Flagship Store, Victoria Island, Lagos";
+    }
+  } else if (details.stateId) {
     const { calculateShippingOptionsServer } = await import("@/features/shipping/actions");
     const shippingCalc = await calculateShippingOptionsServer({
       stateId: details.stateId,
@@ -252,7 +320,10 @@ export async function submitCheckout(input: {
       const headersList = await headers();
       const host = headersList.get("x-forwarded-host") || headersList.get("host");
       const proto = headersList.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
-      const siteUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
+      let siteUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app");
+      if (siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) {
+        siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app";
+      }
 
       const session = await createBachsCheckoutSession({
         orderId: orderResult.orderId,

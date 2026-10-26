@@ -3,7 +3,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { CheckoutView } from "@/features/checkout/components/checkout-view";
 import { getPaymentMethodsConfig } from "@/features/admin/actions/payments";
-import { getStates, getLgas, getDeliveryZones } from "@/features/shipping/actions";
+import { getStates, getLgas, getDeliveryZones, getPickupLocations } from "@/features/shipping/actions";
 
 export const metadata: Metadata = {
   title: "Checkout — Boojy",
@@ -14,11 +14,12 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function CheckoutPage() {
-  const [paymentMethods, states, lgas, deliveryZones] = await Promise.all([
+  const [paymentMethods, states, lgas, deliveryZones, pickupLocations] = await Promise.all([
     getPaymentMethodsConfig(),
-    getStates(),
-    getLgas(""),
-    getDeliveryZones(""),
+    getStates(true), // only states with active shipping rates / zones
+    getLgas(undefined, true), // only deliverable LGAs
+    getDeliveryZones(),
+    getPickupLocations(true),
   ]);
 
   return (
@@ -30,6 +31,7 @@ export default async function CheckoutPage() {
           initialStates={states}
           initialLgas={lgas}
           initialDeliveryZones={deliveryZones}
+          initialPickupLocations={pickupLocations}
         />
       </main>
       <SiteFooter />

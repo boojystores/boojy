@@ -53,10 +53,18 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  // IMPORTANT: If you remove getClaims() and you use server-side rendering
-  // with the Supabase client, your users may be randomly logged out.
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  let user: any = null;
+  try {
+    if (typeof (supabase.auth as any).getClaims === "function") {
+      const { data } = await (supabase.auth as any).getClaims();
+      user = data?.claims;
+    } else {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user;
+    }
+  } catch {
+    user = null;
+  }
 
   // The storefront is public (ADR-0001): guests browse the catalog and check
   // out without an account, so only /admin is gated here. AdminGate re-checks
@@ -64,6 +72,7 @@ export async function updateSession(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
+    url.searchParams.set("returnTo", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 

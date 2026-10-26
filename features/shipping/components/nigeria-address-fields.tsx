@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { NigerianState, NigerianLga, DeliveryZone } from "../types";
+import { BUILTIN_STATES } from "../lib/defaults";
 
 export interface AddressData {
   country: string;
@@ -57,11 +58,43 @@ export function NigeriaAddressFields({
 
   // Filtered LGAs for selected state
   const availableLgas = useMemo(() => {
-    if (!value.stateId) return [];
-    return lgas.filter(
-      (l) => l.state_id === value.stateId || l.state_id.endsWith(value.stateId.slice(-4)),
+    if (!value.stateId && !value.stateName) return [];
+
+    const stateObj = states.find(
+      (s) =>
+        s.id === value.stateId ||
+        (value.stateName && s.name.toLowerCase() === value.stateName.toLowerCase()),
     );
-  }, [lgas, value.stateId]);
+    const stateName = (value.stateName || stateObj?.name || "").toLowerCase();
+    const builtinState = stateName
+      ? BUILTIN_STATES.find((s) => s.name.toLowerCase() === stateName)
+      : null;
+
+    return lgas.filter((l) => {
+      // Direct match
+      if (
+        value.stateId &&
+        (l.state_id === value.stateId || l.state_id.endsWith(value.stateId.slice(-4)))
+      ) {
+        return true;
+      }
+      // Match via stateObj
+      if (
+        stateObj &&
+        (l.state_id === stateObj.id || l.state_id.endsWith(stateObj.id.slice(-4)))
+      ) {
+        return true;
+      }
+      // Bridge match between DB state and builtin LGA dataset
+      if (
+        builtinState &&
+        (l.state_id === builtinState.id || l.state_id.endsWith(builtinState.id.slice(-4)))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [lgas, states, value.stateId, value.stateName]);
 
   const filteredLgas = useMemo(() => {
     if (!lgaSearch.trim()) return availableLgas;
@@ -71,16 +104,34 @@ export function NigeriaAddressFields({
 
   // Available Delivery Zones for selected State and LGA
   const availableZones = useMemo(() => {
-    if (!value.stateId) return [];
+    if (!value.stateId && !value.stateName) return [];
+    if (!value.lgaId) return [];
+
+    const stateObj = states.find(
+      (s) =>
+        s.id === value.stateId ||
+        (value.stateName && s.name.toLowerCase() === value.stateName.toLowerCase()),
+    );
+    const stateName = (value.stateName || stateObj?.name || "").toLowerCase();
+    const builtinState = stateName
+      ? BUILTIN_STATES.find((s) => s.name.toLowerCase() === stateName)
+      : null;
+
     return deliveryZones.filter((z) => {
-      const matchState = z.state_id === value.stateId || z.state_id.endsWith(value.stateId.slice(-4));
+      const matchState =
+        (value.stateId &&
+          (z.state_id === value.stateId || z.state_id.endsWith(value.stateId.slice(-4)))) ||
+        (stateObj &&
+          (z.state_id === stateObj.id || z.state_id.endsWith(stateObj.id.slice(-4)))) ||
+        (builtinState &&
+          (z.state_id === builtinState.id || z.state_id.endsWith(builtinState.id.slice(-4))));
+
       if (!matchState) return false;
-      if (value.lgaId && z.lga_id) {
-        return z.lga_id === value.lgaId || z.lga_id.endsWith(value.lgaId.slice(-4));
-      }
-      return true;
+      // Must match selected LGA
+      if (!z.lga_id) return false;
+      return z.lga_id === value.lgaId || z.lga_id.endsWith(value.lgaId.slice(-4));
     });
-  }, [deliveryZones, value.stateId, value.lgaId]);
+  }, [deliveryZones, states, value.stateId, value.stateName, value.lgaId]);
 
   function handleStateSelect(selectedState: NigerianState) {
     setIsStateOpen(false);
@@ -121,10 +172,12 @@ export function NigeriaAddressFields({
       });
     } else {
       setIsManualCity(false);
+      const matchedLga = zone.lga_id ? lgas.find((l) => l.id === zone.lga_id) : null;
       onChange({
         ...value,
         deliveryZoneId: zone.id,
         cityName: zone.name,
+        ...(matchedLga ? { lgaId: matchedLga.id, lgaName: matchedLga.name } : {}),
       });
     }
   }
@@ -318,10 +371,12 @@ export function NigeriaAddressFields({
         )}
       </div>
 
-      {/* City or Delivery Zone Selection */}
-      {value.stateId && (
-        <div className="space-y-2">
-          <Label className="text-xs font-medium">City, Town or Delivery Zone</Label>
+      {/* Area / Neighborhood Selection - only shown after LGA is selected */}
+      {value.stateId && value.lgaId && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-black dark:text-white">
+            Area / Neighborhood <span className="text-muted-foreground font-normal">(Optional)</span>
+          </Label>
           {availableZones.length > 0 && !isManualCity ? (
             <div className="space-y-1.5">
               <select
@@ -335,23 +390,30 @@ export function NigeriaAddressFields({
                     if (zone) handleZoneSelect(zone);
                   }
                 }}
-                className="flex h-10 w-full rounded-md border border-input bg-card/10 px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-md border border-input bg-card/10 px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-medium"
               >
-                <option value="">Select major delivery zone (optional)</option>
-                {availableZones.map((z) => (
-                  <option key={z.id} value={z.id}>
-                    {z.name}
-                  </option>
-                ))}
-                <option value="manual">Enter city/town manually…</option>
+                <option value="">Select area in {value.lgaName} (optional)</option>
+                {availableZones.map((z) => {
+                  const feeStr = z.base_price_kobo ? ` — ₦${(z.base_price_kobo / 100).toLocaleString()}` : "";
+                  return (
+                    <option key={z.id} value={z.id}>
+                      {z.name}{feeStr}
+                    </option>
+                  );
+                })}
+                <option value="manual">Enter neighborhood/street manually…</option>
               </select>
             </div>
           ) : (
             <div>
               <Input
                 value={value.cityName}
-                onChange={(e) => onChange({ ...value, cityName: e.target.value })}
-                placeholder="e.g. Owerri Urban, Lekki, Victoria Island, Maitama"
+                onChange={(e) => onChange({ ...value, cityName: e.target.value, deliveryZoneId: null })}
+                placeholder={
+                  availableZones.length > 0
+                    ? `Specific area or landmark in ${value.lgaName}`
+                    : `Area, town or neighborhood in ${value.lgaName}`
+                }
               />
               {availableZones.length > 0 && isManualCity && (
                 <button
@@ -359,7 +421,7 @@ export function NigeriaAddressFields({
                   onClick={() => setIsManualCity(false)}
                   className="mt-1 text-xs text-primary underline underline-offset-4"
                 >
-                  Choose from predefined zones
+                  ← Choose from listed areas in {value.lgaName}
                 </button>
               )}
             </div>
@@ -369,7 +431,7 @@ export function NigeriaAddressFields({
 
       {/* Full Street Address */}
       <div>
-        <Label htmlFor="streetAddress" className="text-xs font-medium">
+        <Label htmlFor="streetAddress" className="text-xs font-bold text-black dark:text-white">
           Street Address <span className="text-destructive">*</span>
         </Label>
         <textarea
@@ -386,17 +448,17 @@ export function NigeriaAddressFields({
         )}
       </div>
 
-      {/* Landmark (dedicated field to assist dispatchers/couriers) */}
+      {/* Landmark */}
       <div>
-        <Label htmlFor="landmark" className="text-xs font-medium">
-          Landmark <span className="text-muted-foreground font-normal">(e.g. Near Total Filling Station, Opposite Central Mosque)</span>
+        <Label htmlFor="landmark" className="text-xs font-bold text-black dark:text-white">
+          Landmark or Nearest Bus Stop <span className="text-destructive">*</span>
         </Label>
         <Input
           id="landmark"
           value={value.landmark || ""}
           onChange={(e) => onChange({ ...value, landmark: e.target.value })}
-          placeholder="Prominent landmark, bus stop, junction, or building near you"
-          className="mt-1.5"
+          placeholder="e.g. Near Total Filling Station, Opposite Central Mosque"
+          className="mt-1.5 font-medium"
         />
       </div>
 

@@ -90,7 +90,14 @@ export async function createBachsCheckoutSession(
   const currency = (params.currency || "NGN").toUpperCase();
   const amountStr = params.totalAmount.toFixed(2);
 
-  const cleanSiteUrl = params.siteUrl.replace(/\/+$/, "");
+  let cleanSiteUrl = params.siteUrl.replace(/\/+$/, "");
+
+  // Bachs.io API requires a publicly accessible URL for success_url and cancel_url.
+  // In local development (localhost / 127.0.0.1), fall back to NEXT_PUBLIC_SITE_URL or live domain.
+  if (cleanSiteUrl.includes("localhost") || cleanSiteUrl.includes("127.0.0.1")) {
+    cleanSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app").replace(/\/+$/, "");
+  }
+
   const successUrl = `${cleanSiteUrl}/checkout/result?order_id=${encodeURIComponent(params.orderId)}`;
   const cancelUrl = `${cleanSiteUrl}/checkout/result?order_id=${encodeURIComponent(params.orderId)}&cancelled=true`;
 
