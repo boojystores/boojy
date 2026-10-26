@@ -23,6 +23,7 @@ import {
   retryBachsPayment,
   type OrderPaymentStatusResult,
 } from "@/features/checkout/actions";
+import { navigateToPaymentGateway } from "@/features/checkout/lib/navigation";
 
 interface PaymentResultViewProps {
   orderId: string;
@@ -110,11 +111,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
     try {
       const res = await retryBachsPayment(orderId);
       if (res.ok && res.checkoutUrl) {
-        try {
-          window.location.assign(res.checkoutUrl);
-        } catch {
-          window.location.href = res.checkoutUrl;
-        }
+        navigateToPaymentGateway(res.checkoutUrl);
       } else {
         alert(res.message || "Failed to restart payment session.");
         setRetrying(false);
@@ -362,7 +359,15 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               {orderData.checkoutUrl ? (
                 <Button asChild size="lg" className="w-full sm:w-auto font-display uppercase tracking-wider">
-                  <a href={orderData.checkoutUrl}>
+                  <a
+                    href={orderData.checkoutUrl}
+                    target="_top"
+                    rel="noreferrer noopener"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToPaymentGateway(orderData.checkoutUrl);
+                    }}
+                  >
                     Continue to Payment <ArrowRight className="ml-1.5 h-4 w-4" />
                   </a>
                 </Button>

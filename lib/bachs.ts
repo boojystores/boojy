@@ -110,7 +110,9 @@ export async function createBachsCheckoutSession(
     customer: {
       email: params.customer.email.trim().toLowerCase(),
       name: params.customer.fullName.trim(),
-      phone_number: params.customer.contactNumber?.trim() || null,
+      phone_number: params.customer.contactNumber
+        ? params.customer.contactNumber.trim().replace(/[^\d+]/g, "")
+        : null,
     },
     reference: params.orderId,
     success_url: successUrl,

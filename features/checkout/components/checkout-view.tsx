@@ -22,6 +22,7 @@ import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { type PaymentMethodConfig } from "@/features/checkout/lib/payment-methods";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
+import { navigateToPaymentGateway } from "@/features/checkout/lib/navigation";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import { NigeriaAddressFields, type AddressData } from "@/features/shipping/components/nigeria-address-fields";
 import { calculateShippingOptionsServer } from "@/features/shipping/actions";
@@ -90,6 +91,21 @@ export function CheckoutView({
   const clearCart = useCartStore((state) => state.clearCart);
   useCartReconcile();
   const unavailableCount = items.filter((item) => item.unavailable).length;
+
+  // iOS Safari / WebKit Private Browsing hydration failsafe
+  // Ensures the checkout page NEVER hangs indefinitely on the loading preloader
+  useEffect(() => {
+    if (!hasHydrated) {
+      if (typeof useCartStore.persist?.hasHydrated === "function" && useCartStore.persist.hasHydrated()) {
+        useCartStore.getState().setHasHydrated(true);
+      } else {
+        const timer = setTimeout(() => {
+          useCartStore.getState().setHasHydrated(true);
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [hasHydrated]);
 
   const availablePaymentMethods = useMemo(() => {
     if (initialPaymentMethods && initialPaymentMethods.length > 0) {
@@ -378,19 +394,33 @@ export function CheckoutView({
 
       if (response.ok) {
         if (response.checkoutUrl) {
+          const targetUrl = response.checkoutUrl;
+
+          // Clear cart now that order is placed
+          clearCart();
+
+          // Persist order metadata in sessionStorage for seamless return or history recovery
+          try {
+            sessionStorage.setItem(
+              "boojy_pending_order",
+              JSON.stringify({
+                orderNumber: response.orderNumber,
+                orderId: response.orderId,
+                totalAmount: response.totalAmount,
+                checkoutUrl: targetUrl,
+              }),
+            );
+          } catch {}
+
+          // Display redirecting state immediately so user gets clear visual feedback
           setRedirectSession({
-            checkoutUrl: response.checkoutUrl,
+            checkoutUrl: targetUrl,
             orderNumber: response.orderNumber,
             totalAmount: response.totalAmount,
           });
 
-          clearCart();
-
-          try {
-            window.location.assign(response.checkoutUrl);
-          } catch {
-            window.location.href = response.checkoutUrl;
-          }
+          // Perform robust, multi-tier cross-browser navigation
+          navigateToPaymentGateway(targetUrl);
           return;
         }
 
@@ -428,43 +458,7 @@ export function CheckoutView({
   }
 
   if (redirectSession) {
-    return (
-      <div className="site-container py-16 sm:py-24">
-        <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
-          <div className="mb-6 flex justify-center">
-            <BoojyPreloader size="lg" />
-          </div>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            Order Created · {redirectSession.orderNumber}
-          </span>
-
-          <h2 className="mt-4 font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">
-            Redirecting to Payment…
-          </h2>
-
-          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Connecting you securely to complete your payment of{" "}
-            <span className="font-semibold text-foreground">
-              {priceFormatter.format(redirectSession.totalAmount)}
-            </span>.
-          </p>
-
-          <div className="mt-8 space-y-3">
-            <a
-              href={redirectSession.checkoutUrl}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <span>Tap here to Pay Now</span>
-              <span aria-hidden="true">&rarr;</span>
-            </a>
-            <p className="text-xs text-muted-foreground">
-              If your device does not redirect automatically within a few seconds, tap the button above to proceed to the payment gateway.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PaymentGatewayHandoffView session={redirectSession} />;
   }
 
   return (
@@ -1179,6 +1173,68 @@ function EmptyCheckout() {
       <Button asChild className="mt-6">
         <Link href="/products">Browse collection</Link>
       </Button>
+    </div>
+  );
+}
+
+function PaymentGatewayHandoffView({
+  session,
+}: {
+  session: { checkoutUrl: string; orderNumber: string; totalAmount: number };
+}) {
+  useEffect(() => {
+    // Attempt navigation immediately on mount
+    navigateToPaymentGateway(session.checkoutUrl);
+
+    // Watchdog: If Safari / WebKit stalls or blocks the initial dispatch, retry every 1.5s
+    const interval = setInterval(() => {
+      navigateToPaymentGateway(session.checkoutUrl);
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [session.checkoutUrl]);
+
+  return (
+    <div className="site-container py-16 sm:py-24">
+      <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
+        <div className="mb-6 flex justify-center">
+          <BoojyPreloader size="lg" message="Connecting to secure payment…" />
+        </div>
+
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+          Order Created · {session.orderNumber}
+        </span>
+
+        <h2 className="mt-4 font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">
+          Redirecting to Payment…
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+          Connecting you securely to complete your payment of{" "}
+          <span className="font-semibold text-foreground">
+            {priceFormatter.format(session.totalAmount)}
+          </span>.
+        </p>
+
+        <div className="mt-8 space-y-3">
+          <a
+            href={session.checkoutUrl}
+            target="_top"
+            rel="noreferrer noopener"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToPaymentGateway(session.checkoutUrl);
+            }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>Proceed to Payment</span>
+            <span aria-hidden="true">&rarr;</span>
+          </a>
+          <p className="text-xs text-muted-foreground">
+            If your browser does not redirect automatically, tap the button above to proceed to the payment gateway.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
