@@ -132,7 +132,7 @@ export type ReceiptData = {
   deliveryAddress: string;
   customerName: string;
   createdAt?: string;
-  items: { name: string; quantity: number; unitPrice: number }[];
+  items: { name: string; quantity: number; unitPrice: number; size?: string }[];
   logoUrl?: string;
   shippingFee?: number;
   shippingMethodName?: string;
@@ -217,7 +217,14 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
           </View>
           {data.items.map((item, i) => (
             <View key={i} style={styles.tableRow}>
-              <Text style={styles.colName}>{item.name}</Text>
+              <View style={styles.colName}>
+                <Text>{item.name}</Text>
+                {item.size ? (
+                  <Text style={{ fontSize: 8, color: "#6b6560", marginTop: 2 }}>
+                    Size: {item.size}
+                  </Text>
+                ) : null}
+              </View>
               <Text style={styles.colQty}>{item.quantity}</Text>
               <Text style={styles.colPrice}>{priceFmt(item.unitPrice)}</Text>
               <Text style={styles.colTotal}>

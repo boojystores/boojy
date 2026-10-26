@@ -92,11 +92,15 @@ export function TrackOrderForm() {
         createdAt: result.createdAt,
         shippingFee: result.shippingFee,
         shippingMethodName: result.shippingMethodName,
-        items: result.items.map((item) => ({
-          name: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
+        items: result.items.map((item) => {
+          const sizeMatch = item.productName.match(/\(Size:\s*([^)]+)\)/i)?.[1];
+          return {
+            name: item.productName,
+            size: sizeMatch,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          };
+        }),
       });
     } catch {
       setError("Could not generate receipt. Please try again.");
@@ -267,10 +271,17 @@ export function TrackOrderForm() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {item.productName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">
+                        {item.productName}
+                      </p>
+                      {item.productName.match(/\(Size:\s*([^)]+)\)/i)?.[1] && (
+                        <span className="inline-flex items-center rounded bg-foreground px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background">
+                          Size: {item.productName.match(/\(Size:\s*([^)]+)\)/i)?.[1]}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {priceFormatter.format(item.unitPrice)} &times;{" "}
                       {item.quantity}
                     </p>

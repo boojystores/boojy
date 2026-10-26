@@ -43,7 +43,7 @@ export async function GET(request: Request) {
         customers (
           full_name,
           email,
-          phone
+          contact_number
         )
       `)
       .eq("id", orderId)
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
         customer: {
           fullName: customer?.full_name || "Valued Customer",
           email: customer?.email || "customer@example.com",
-          contactNumber: customer?.phone || undefined,
+          contactNumber: customer?.contact_number || undefined,
         },
         siteUrl: cleanSiteUrl,
       });

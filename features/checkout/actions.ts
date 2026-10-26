@@ -310,6 +310,30 @@ export async function submitCheckout(input: {
     }
 
     await serviceClient.from("orders").update(updatePayload).eq("id", orderResult.orderId);
+
+    // Update order_items with selected size snapshot so size is permanently factored into the DB
+    const itemsWithSize = items.filter((it) => it.selectedSize);
+    if (itemsWithSize.length > 0) {
+      const { data: dbItems } = await serviceClient
+        .from("order_items")
+        .select("id, product_id, product_name")
+        .eq("order_id", orderResult.orderId);
+
+      if (dbItems && dbItems.length > 0) {
+        for (const itemInput of itemsWithSize) {
+          const matchingDbItem = dbItems.find((d) => d.product_id === itemInput.productId);
+          if (matchingDbItem && !matchingDbItem.product_name.includes(`(${itemInput.selectedSize})`)) {
+            const baseName = matchingDbItem.product_name.replace(/\s*\(Size:\s*[^)]+\)/i, "").trim();
+            await serviceClient
+              .from("order_items")
+              .update({
+                product_name: `${baseName} (Size: ${itemInput.selectedSize})`,
+              })
+              .eq("id", matchingDbItem.id);
+          }
+        }
+      }
+    }
   } catch (snapErr) {
     console.warn("[Order Shipping Snapshot Warn]:", snapErr);
   }

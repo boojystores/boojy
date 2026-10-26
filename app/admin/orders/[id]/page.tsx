@@ -226,8 +226,15 @@ export default async function AdminOrderDetailPage({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{item.productName}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-medium">{item.productName}</p>
+                    {item.productName.match(/\(Size:\s*([^)]+)\)/i)?.[1] && (
+                      <span className="inline-flex items-center rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-white dark:bg-neutral-100 dark:text-neutral-900">
+                        Size: {item.productName.match(/\(Size:\s*([^)]+)\)/i)?.[1]}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     ID: {item.productId ?? "N/A"} · {item.quantity} × {priceFormatter.format(item.unitPrice)}
                   </p>
                   {!item.imageUrl && (

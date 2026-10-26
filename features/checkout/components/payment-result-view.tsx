@@ -213,16 +213,25 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
                     Purchased Pieces
                   </p>
                   <ul className="space-y-1.5">
-                    {orderData.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between text-xs">
-                        <span className="min-w-0 truncate text-foreground">
-                          {item.name} <span className="text-muted-foreground">× {item.quantity}</span>
-                        </span>
-                        <span className="shrink-0 font-medium tabular-nums text-foreground">
-                          {priceFormatter.format(item.unitPrice * item.quantity)}
-                        </span>
-                      </li>
-                    ))}
+                    {orderData.items.map((item, idx) => {
+                      const sizeMatch = item.name.match(/\(Size:\s*([^)]+)\)/i)?.[1];
+                      return (
+                        <li key={idx} className="flex justify-between text-xs">
+                          <span className="min-w-0 truncate text-foreground flex items-center gap-1.5">
+                            <span className="truncate">{item.name}</span>
+                            {sizeMatch && (
+                              <span className="shrink-0 rounded bg-neutral-900 px-1.5 py-0.2 text-[10px] font-bold uppercase text-white dark:bg-white dark:text-black">
+                                {sizeMatch}
+                              </span>
+                            )}
+                            <span className="text-muted-foreground shrink-0">× {item.quantity}</span>
+                          </span>
+                          <span className="shrink-0 font-medium tabular-nums text-foreground">
+                            {priceFormatter.format(item.unitPrice * item.quantity)}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

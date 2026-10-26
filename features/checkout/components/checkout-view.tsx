@@ -330,6 +330,8 @@ export function CheckoutView({
     const lines = items.map((item) => ({
       productId: item.productId ?? item.id.split("::")[0],
       quantity: item.quantity,
+      selectedSize: item.selected_size,
+      productName: item.name,
     }));
 
     const sizeLines = items
@@ -1042,6 +1044,7 @@ function ConfirmationModal({
         shippingMethodName: confirmation.shippingMethodName,
         items: confirmation.lines.map((line) => ({
           name: line.selected_size ? `${line.name} (${line.selected_size})` : line.name,
+          size: line.selected_size,
           quantity: line.quantity,
           unitPrice: line.price,
         })),
@@ -1217,6 +1220,8 @@ function PaymentGatewayHandoffView({
         <div className="mt-8 space-y-3">
           <a
             href={payUrl}
+            target="_top"
+            rel="noopener"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Proceed to Payment</span>

@@ -43,6 +43,8 @@ export type CheckoutDetails = {
 export type CheckoutLineInput = {
   productId: string;
   quantity: number;
+  selectedSize?: string;
+  productName?: string;
 };
 
 /** A single rejected cart line, with what stock actually allowed. */

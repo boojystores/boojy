@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Eye, ShoppingBag, XCircle } from "lucide-react";
-import { useRef, useState } from "react";
+import { ShoppingBag, XCircle } from "lucide-react";
 import type { Category, Product } from "@/features/catalog/lib/catalog";
-import { useCartStore } from "@/features/cart/lib/cart";
 import { formatPrice } from "@/lib/currency";
 
 export function ProductCard({
@@ -14,9 +12,6 @@ export function ProductCard({
   product: Product;
   categories?: Category[];
 }) {
-  const addItem = useCartStore((state) => state.addItem);
-  const [justAdded, setJustAdded] = useState(false);
-  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const outOfStock = product.stock_quantity === 0;
   const categoryName =
     categories?.find((c) => c.id === product.category_id)?.name ?? null;
@@ -25,15 +20,6 @@ export function ProductCard({
     e.preventDefault();
     e.stopPropagation();
     if (outOfStock) return;
-    addItem(product, 1);
-    setJustAdded(true);
-    if (addedTimer.current) clearTimeout(addedTimer.current);
-    addedTimer.current = setTimeout(() => setJustAdded(false), 1600);
-  }
-
-  function handleViewDetails(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
     window.location.href = `/products/${product.id}`;
   }
 
@@ -70,37 +56,26 @@ export function ProductCard({
         <p className="mt-auto pt-1 font-display text-base font-bold tabular-nums">
           {formatPrice(product.price)}
         </p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={handleViewDetails}
-            aria-label={`View details for ${product.name}`}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            View Details
-          </button>
+        <div className="mt-2">
           <button
             type="button"
             onClick={handleAddToCart}
             disabled={outOfStock}
-            aria-label={`Add ${product.name} to bag`}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-              justAdded
-                ? "bg-emerald-600 text-white"
-                : outOfStock
-                  ? "cursor-not-allowed bg-muted text-muted-foreground"
-                  : "bg-black text-white shadow-sm hover:bg-neutral-800"
+            aria-label={outOfStock ? `${product.name} is out of stock` : `Add ${product.name} to bag - select size`}
+            className={`flex w-full items-center justify-center gap-2 rounded-md py-2 px-3 text-xs font-semibold uppercase tracking-wider transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+              outOfStock
+                ? "cursor-not-allowed bg-muted text-muted-foreground"
+                : "bg-black text-white shadow-sm hover:bg-neutral-800 active:scale-[0.99]"
             }`}
           >
-            {justAdded ? (
+            {outOfStock ? (
               <>
-                <Check className="h-3.5 w-3.5" />
-                Added
+                <XCircle className="h-3.5 w-3.5" />
+                Out of Stock
               </>
             ) : (
               <>
-                <ShoppingBag className="h-3.5 w-3.5 stroke-[1.8]" />
+                <ShoppingBag className="h-3.5 w-3.5 stroke-[2]" />
                 Add to Bag
               </>
             )}
