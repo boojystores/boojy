@@ -4,10 +4,12 @@ export function KpiCard({
   label,
   value,
   icon: Icon,
+  subtitle,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
+  subtitle?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-background p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -18,6 +20,9 @@ export function KpiCard({
         </span>
       </div>
       <p className="mt-3 font-display text-3xl font-bold tracking-tight">{value}</p>
+      {subtitle && (
+        <p className="mt-1 text-xs text-muted-foreground font-medium">{subtitle}</p>
+      )}
     </div>
   );
 }

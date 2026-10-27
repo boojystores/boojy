@@ -14,8 +14,10 @@ export type AdminKpis = {
   pendingOrders: number;
   completedOrders: number;
   totalCustomers: number;
-  /** Sum of order totals, excluding cancelled Orders. */
+  /** Sum of order totals for paid and completed orders (real money received). */
   totalSales: number;
+  /** Sum of order totals for placed orders still pending payment. */
+  pendingSales: number;
 };
 
 const EMPTY_KPIS: AdminKpis = {
@@ -25,6 +27,7 @@ const EMPTY_KPIS: AdminKpis = {
   completedOrders: 0,
   totalCustomers: 0,
   totalSales: 0,
+  pendingSales: 0,
 };
 
 /** The jsonb shape returned by `get_admin_kpis` (snake_case keys). */
@@ -35,6 +38,7 @@ type KpisRow = {
   completed_orders: number;
   total_customers: number;
   total_sales: number;
+  pending_sales?: number;
 };
 
 export async function getAdminKpis(client: SupabaseClient): Promise<AdminKpis> {
@@ -63,6 +67,7 @@ export async function getAdminKpis(client: SupabaseClient): Promise<AdminKpis> {
     completedOrders: Number(k.completed_orders) || 0,
     totalCustomers: Number(k.total_customers) || 0,
     totalSales: Number(k.total_sales) || 0,
+    pendingSales: Number(k.pending_sales) || 0,
   };
 }
 
@@ -75,7 +80,7 @@ export type ChartDataPoint = {
 /**
  * Chart data for the admin dashboard: order count and revenue per month for
  * the last 6 months. Queries the `orders` table directly, excluding
- * cancelled orders, and groups by `date_trunc('month', created_at)`.
+ * cancelled and unconfirmed/unpaid orders from revenue, and groups by month.
  */
 export async function getAdminChartData(
   client: SupabaseClient,
@@ -94,19 +99,35 @@ export async function getAdminChartData(
 
   const { data, error } = await client
     .from("orders")
-    .select("created_at, total_amount")
+    .select("created_at, total_amount, status, payment_status")
     .neq("status", "cancelled")
     .gte("created_at", startIso);
 
   if (error) return months;
 
-  for (const row of data ?? []) {
+  type OrderRow = {
+    created_at: string;
+    total_amount: number;
+    status: string;
+    payment_status?: string | null;
+  };
+
+  for (const row of (data as unknown as OrderRow[]) ?? []) {
     const d = new Date(row.created_at);
     const key = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
     const point = months.find((m) => m.month === key);
     if (point) {
       point.orders += 1;
-      point.revenue += Number(row.total_amount);
+      // Revenue only counts paid / completed orders (real money received, not pending)
+      const isPaid =
+        row.payment_status === "paid" ||
+        row.status === "completed" ||
+        row.status === "confirmed" ||
+        row.status === "preparing" ||
+        row.status === "shipped";
+      if (isPaid && row.status !== "pending") {
+        point.revenue += Number(row.total_amount);
+      }
     }
   }
 

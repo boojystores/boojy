@@ -792,3 +792,50 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- 8. Updated get_admin_kpis: Only paid / completed orders count toward total_sales (real money received).
+--    Pending orders awaiting payment are reported under pending_sales.
+CREATE OR REPLACE FUNCTION public.get_admin_kpis()
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_kpis jsonb;
+BEGIN
+  IF NOT public.is_admin() THEN
+    RETURN jsonb_build_object('ok', false, 'message', 'Admins only.');
+  END IF;
+
+  SELECT jsonb_build_object(
+    'total_products', (SELECT count(*) FROM public.products),
+    'total_orders', (SELECT count(*) FROM public.orders),
+    'pending_orders', (SELECT count(*) FROM public.orders WHERE status = 'pending'),
+    'completed_orders', (SELECT count(*) FROM public.orders WHERE status = 'completed'),
+    'total_customers', (SELECT count(*) FROM public.customers),
+    -- Total sales = only paid and completed orders (real money received)
+    'total_sales', coalesce((
+      SELECT sum(total_amount)
+      FROM public.orders
+      WHERE status <> 'cancelled'
+        AND (payment_status = 'paid' OR status IN ('confirmed', 'preparing', 'shipped', 'completed'))
+        AND status <> 'pending'
+    ), 0),
+    -- Pending sales = orders placed but still pending payment
+    'pending_sales', coalesce((
+      SELECT sum(total_amount)
+      FROM public.orders
+      WHERE status = 'pending'
+        AND coalesce(payment_status, 'pending') <> 'paid'
+    ), 0)
+  ) INTO v_kpis;
+
+  RETURN jsonb_build_object('ok', true, 'kpis', v_kpis);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_admin_kpis() FROM public;
+GRANT EXECUTE ON FUNCTION public.get_admin_kpis() TO authenticated;
+

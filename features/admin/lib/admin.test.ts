@@ -12,6 +12,7 @@ const EMPTY = {
   completedOrders: 0,
   totalCustomers: 0,
   totalSales: 0,
+  pendingSales: 0,
 };
 
 function mockKpis(kpis: {
@@ -21,6 +22,7 @@ function mockKpis(kpis: {
   completed_orders: number;
   total_customers: number;
   total_sales: number;
+  pending_sales?: number;
 }): MockSupabase {
   const mock = createMockSupabase();
   mock.mockRpc("get_admin_kpis", () => ({ ok: true, kpis }));
@@ -28,9 +30,9 @@ function mockKpis(kpis: {
 }
 
 describe("admin KPIs (ticket 07)", () => {
-  it("maps the six aggregates returned by the get_admin_kpis RPC", async () => {
-    // The SQL itself (counts, and total_sales excluding cancelled) is verified
-    // by supabase/verify-read-model.sql — this pins the TS mapping.
+  it("maps the aggregates returned by the get_admin_kpis RPC", async () => {
+    // The SQL itself (counts, total_sales for completed/paid, pending_sales) is verified
+    // by supabase migration — this pins the TS mapping.
     const mock = mockKpis({
       total_products: 3,
       total_orders: 4,
@@ -38,6 +40,7 @@ describe("admin KPIs (ticket 07)", () => {
       completed_orders: 1,
       total_customers: 2,
       total_sales: 75.5,
+      pending_sales: 25.0,
     });
 
     const kpis = await getAdminKpis(toClient(mock));
@@ -49,6 +52,7 @@ describe("admin KPIs (ticket 07)", () => {
       completedOrders: 1,
       totalCustomers: 2,
       totalSales: 75.5,
+      pendingSales: 25.0,
     });
   });
 

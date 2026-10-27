@@ -21,34 +21,40 @@ export default async function AdminDashboardPage() {
 
   const cards = [
     {
-      label: "Total Products",
-      value: kpis.totalProducts.toLocaleString(),
-      icon: Package,
-    },
-    {
-      label: "Total Orders",
-      value: kpis.totalOrders.toLocaleString(),
-      icon: ShoppingBag,
+      label: "Total Sales",
+      value: currency.format(kpis.totalSales),
+      subtitle: "Paid & completed orders",
+      icon: Banknote,
     },
     {
       label: "Pending Orders",
-      value: kpis.pendingOrders.toLocaleString(),
+      value: currency.format(kpis.pendingSales),
+      subtitle: `${kpis.pendingOrders.toLocaleString()} order${kpis.pendingOrders === 1 ? "" : "s"} awaiting payment`,
       icon: Clock3,
     },
     {
       label: "Completed Orders",
       value: kpis.completedOrders.toLocaleString(),
+      subtitle: "Fulfilled & delivered",
       icon: CheckCircle2,
+    },
+    {
+      label: "Total Orders",
+      value: kpis.totalOrders.toLocaleString(),
+      subtitle: "All orders placed",
+      icon: ShoppingBag,
     },
     {
       label: "Total Customers",
       value: kpis.totalCustomers.toLocaleString(),
+      subtitle: "Customer accounts",
       icon: Users,
     },
     {
-      label: "Total Sales",
-      value: currency.format(kpis.totalSales),
-      icon: Banknote,
+      label: "Total Products",
+      value: kpis.totalProducts.toLocaleString(),
+      subtitle: "Active catalog items",
+      icon: Package,
     },
   ];
 
