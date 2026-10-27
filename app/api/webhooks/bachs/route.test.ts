@@ -384,4 +384,84 @@ describe("Bachs.io Webhook API Route (/api/webhooks/bachs)", () => {
       p_restore_stock: false,
     });
   });
+
+  it("processes a valid checkout.succeeded event and confirms the order atomically", async () => {
+    const orderId = "00000000-0000-0000-0000-000000000003";
+    const payload = {
+      id: "evt_checkout_success_1",
+      type: "checkout.succeeded",
+      created_at: new Date().toISOString(),
+      organization_id: "org_1",
+      data: {
+        checkout_id: "chk_test_3",
+        reference: orderId,
+        pricing: {
+          amount: "45000.00",
+          currency: "NGN",
+        },
+        metadata: {
+          order_id: orderId,
+        },
+      },
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "bachs_webhook_events") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null }),
+            }),
+          }),
+          insert: async () => ({ error: null }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        };
+      }
+      if (table === "orders") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: orderId,
+                  order_number: "ORD-20261024-0003",
+                  total_amount: 45000,
+                  payment_status: "pending",
+                  status: "pending",
+                },
+              }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        order_id: orderId,
+        order_number: "ORD-20261024-0003",
+        status: "confirmed",
+        payment_status: "paid",
+        stock_deducted: true,
+      },
+      error: null,
+    });
+
+    const req = createSignedRequest(payload);
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith("confirm_bachs_payment", {
+      p_order_id: orderId,
+      p_charge_id: "chk_test_3",
+      p_payment_reference: orderId,
+      p_amount: 45000,
+      p_currency: "NGN",
+      p_metadata: payload.data,
+    });
+  });
 });

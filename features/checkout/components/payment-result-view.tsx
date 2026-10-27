@@ -18,6 +18,7 @@ import { BoojyPreloader } from "@/components/boojy-preloader";
 import { priceFormatter } from "@/lib/currency";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import type { PaymentMethod } from "@/features/checkout/lib/checkout";
+import { useCartStore } from "@/features/cart/lib/cart";
 import {
   getOrderPaymentStatus,
   type OrderPaymentStatusResult,
@@ -60,6 +61,10 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
     async function check() {
       const res = await fetchStatus();
       if (!isMounted) return;
+
+      if (res?.ok && (res.paymentStatus === "paid" || res.status === "confirmed")) {
+        useCartStore.getState().clearCart();
+      }
 
       // If pending and not explicitly cancelled, poll for up to 30 seconds (12 checks @ 2.5s)
       if (res?.ok && res.paymentStatus === "pending" && !isCancelled && pollCount < 12) {
@@ -135,6 +140,12 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
   const isFailed = isCancelled || orderData.paymentStatus === "failed" || orderData.status === "cancelled";
   const isPending = !isPaid && !isFailed;
   const payHref = `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`;
+
+  useEffect(() => {
+    if (isPaid) {
+      useCartStore.getState().clearCart();
+    }
+  }, [isPaid]);
 
   return (
     <div className="site-container py-12 md:py-20">

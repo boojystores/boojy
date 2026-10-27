@@ -408,6 +408,7 @@ export function CheckoutView({
       paymentForm.appendChild(payload);
       document.body.appendChild(paymentForm);
       hostedPaymentStarted.current = true;
+      clearCart();
       HTMLFormElement.prototype.submit.call(paymentForm);
       return;
     }

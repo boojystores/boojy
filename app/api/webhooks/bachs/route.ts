@@ -125,10 +125,13 @@ export async function POST(req: NextRequest) {
   // 4. Process Events
   try {
     switch (eventType) {
-      case "collection.succeeded": {
+      case "collection.succeeded":
+      case "checkout.succeeded":
+      case "checkout_succeeded":
+      case "checkout.completed": {
         if (!order) {
           console.error(
-            `[Bachs Webhook] Order not found for collection.succeeded: reference=${reference}, checkout_id=${checkoutId}`,
+            `[Bachs Webhook] Order not found for ${eventType}: reference=${reference}, checkout_id=${checkoutId}`,
           );
           await supabase
             .from("bachs_webhook_events")
@@ -140,20 +143,36 @@ export async function POST(req: NextRequest) {
         const chargeId =
           typeof eventData.charge_id === "string"
             ? eventData.charge_id
-            : typeof eventData.id === "string"
-              ? eventData.id
-              : "chg_unknown";
+            : typeof eventData.payment_id === "string"
+              ? eventData.payment_id
+              : typeof eventData.id === "string"
+                ? eventData.id
+                : checkoutId || "chg_unknown";
+
         const currency =
-          typeof eventData.currency === "string" ? eventData.currency.toUpperCase() : "NGN";
-        const rawAmount =
-          typeof eventData.amount === "string"
-            ? parseFloat(eventData.amount)
-            : typeof eventData.amount === "number"
-              ? eventData.amount
-              : NaN;
+          typeof eventData.currency === "string"
+            ? eventData.currency.toUpperCase()
+            : typeof (eventData.pricing as Record<string, unknown>)?.currency === "string"
+              ? String((eventData.pricing as Record<string, unknown>).currency).toUpperCase()
+              : "NGN";
+
+        let rawAmount = NaN;
+        if (typeof eventData.amount === "string" || typeof eventData.amount === "number") {
+          rawAmount = typeof eventData.amount === "string" ? parseFloat(eventData.amount) : eventData.amount;
+        } else if (typeof eventData.total_amount === "string" || typeof eventData.total_amount === "number") {
+          rawAmount = typeof eventData.total_amount === "string" ? parseFloat(eventData.total_amount) : eventData.total_amount;
+        } else if (
+          typeof (eventData.pricing as Record<string, unknown>)?.amount === "string" ||
+          typeof (eventData.pricing as Record<string, unknown>)?.amount === "number"
+        ) {
+          const pricingAmount = (eventData.pricing as Record<string, unknown>).amount;
+          rawAmount = typeof pricingAmount === "string" ? parseFloat(pricingAmount as string) : (pricingAmount as number);
+        } else if (order.total_amount) {
+          rawAmount = Number(order.total_amount);
+        }
 
         if (isNaN(rawAmount)) {
-          console.error("[Bachs Webhook] Invalid amount in collection.succeeded payload:", eventData.amount);
+          console.error(`[Bachs Webhook] Invalid amount in ${eventType} payload:`, eventData.amount);
           await supabase
             .from("bachs_webhook_events")
             .update({ status: "failed", error_message: "Invalid amount", order_id: order.id })
@@ -161,7 +180,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Invalid amount in event payload" }, { status: 400 });
         }
 
-        // Atomic payment confirmation RPC (validates amount & currency, sets status to confirmed & paid)
+        // Atomic payment confirmation RPC (validates amount & currency, sets status to confirmed & paid, deducts stock)
         const { data: confirmResult, error: rpcError } = await supabase.rpc("confirm_bachs_payment", {
           p_order_id: order.id,
           p_charge_id: chargeId,
@@ -207,7 +226,9 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      case "collection.failed": {
+      case "collection.failed":
+      case "checkout.failed":
+      case "checkout_failed": {
         if (order) {
           const failureReason =
             typeof eventData.failure_reason === "string"
@@ -241,21 +262,6 @@ export async function POST(req: NextRequest) {
             p_restore_stock: true,
           });
 
-          await supabase
-            .from("bachs_webhook_events")
-            .update({
-              status: "processed",
-              order_id: order.id,
-              processed_at: new Date().toISOString(),
-            })
-            .eq("id", eventId);
-        }
-        break;
-      }
-
-      case "checkout.completed": {
-        // Informational session completion
-        if (order) {
           await supabase
             .from("bachs_webhook_events")
             .update({

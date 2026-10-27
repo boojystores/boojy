@@ -82,7 +82,7 @@ export function SiteFooter() {
               </a>
               <span className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                123 Streetwear Boulevard, Victoria Island, Lagos, Nigeria
+                Lagos, Nigeria
               </span>
             </div>
           </div>
