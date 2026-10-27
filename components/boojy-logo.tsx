@@ -26,8 +26,8 @@ export interface BoojyLogoProps {
 
 const LOGO_DARK = "/boojy-dark.png";
 const LOGO_LIGHT = "/boojy-light.png";
-const LOGO_WIDTH = 2021;
-const LOGO_HEIGHT = 620;
+const LOGO_WIDTH = 2640;
+const LOGO_HEIGHT = 810;
 
 /**
  * Boojy brand logo component.
