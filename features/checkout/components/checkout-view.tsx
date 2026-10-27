@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   ShoppingBag,
   Store,
-  Truck,
   X,
 } from "lucide-react";
 import { cartCount, cartSubtotal, useCartStore, type CartItem } from "@/features/cart/lib/cart";
@@ -33,7 +32,7 @@ import { BoojyPreloader } from "@/components/boojy-preloader";
 import { cn } from "@/lib/utils";
 import { priceFormatter } from "@/lib/currency";
 
-import { isValidEmail, isValidPhoneNumber, sanitizePhoneInput } from "@/features/checkout/lib/validation";
+import { isValidEmail, isValidPhoneNumber } from "@/features/checkout/lib/validation";
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; hint: string }[] = [
   { value: "bachs", label: "Card & Bank Transfer", hint: "Pay securely with Debit Card or Bank Transfer." },
@@ -263,9 +262,9 @@ export function CheckoutView({
     }
   };
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event?: React.FormEvent<HTMLFormElement>) {
     if (submitting || hostedPaymentStarted.current) {
-      event.preventDefault();
+      event?.preventDefault();
       return;
     }
 
@@ -289,8 +288,11 @@ export function CheckoutView({
       addrErrors.recipientPhone = "Contact phone number is required.";
       errors.contactNumber = "Contact number is required.";
     } else if (!isValidPhoneNumber(effectivePhone)) {
-      addrErrors.recipientPhone = "Phone number must be numeric (e.g. 08012345678). Letters are not allowed.";
-      errors.contactNumber = "Phone number must be numeric (e.g. 08012345678). Letters are not allowed.";
+      const phoneMessage = /[a-zA-Z]/.test(effectivePhone)
+        ? "Phone number must be numeric (e.g. 08012345678). Letters are not allowed."
+        : "Enter the full phone number, like 08012345678.";
+      addrErrors.recipientPhone = phoneMessage;
+      errors.contactNumber = phoneMessage;
     }
 
     if (deliveryMode === "ship") {
@@ -306,16 +308,21 @@ export function CheckoutView({
     }
 
     if (Object.keys(errors).length > 0 || Object.keys(addrErrors).length > 0) {
-      event.preventDefault();
+      event?.preventDefault();
       setFieldErrors(errors);
       setAddressErrors(addrErrors);
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>("[aria-invalid='true']")
+          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
       return;
     }
 
     const chosenOption = deliveryMode === "pickup" ? PICKUP_OPTION : selectedOption;
 
     if (!chosenOption) {
-      event.preventDefault();
+      event?.preventDefault();
       setResult({
         ok: false,
         code: "SHIPPING_UNAVAILABLE",
@@ -386,26 +393,26 @@ export function CheckoutView({
       deliveryInstructions: userNotes || undefined,
     };
 
-    // Bachs must navigate in this same turn. iOS Safari drops location changes
-    // that run after the checkout request resolves; a native form POST stays
-    // tied to the tap, and Android follows it as well.
+    // Bachs must leave this page as a document POST. Calling preventDefault
+    // on the checkout form makes React fetch /checkout, Safari refuses the
+    // cross-origin Bachs redirect ("Load failed"), and Next reloads checkout.
     if (fields.paymentMethod === "bachs") {
-      const field = event.currentTarget.elements.namedItem("payload");
-      if (!(field instanceof HTMLInputElement)) {
-        event.preventDefault();
-        setResult({
-          ok: false,
-          code: "UNKNOWN",
-          message: "Could not open payment. Please try again.",
-        });
-        return;
-      }
-      field.value = JSON.stringify({ details, items: lines });
+      const paymentForm = document.createElement("form");
+      paymentForm.method = "POST";
+      paymentForm.action = "/api/checkout/pay";
+      paymentForm.acceptCharset = "UTF-8";
+      const payload = document.createElement("input");
+      payload.type = "hidden";
+      payload.name = "payload";
+      payload.value = JSON.stringify({ details, items: lines });
+      paymentForm.appendChild(payload);
+      document.body.appendChild(paymentForm);
       hostedPaymentStarted.current = true;
+      HTMLFormElement.prototype.submit.call(paymentForm);
       return;
     }
 
-    event.preventDefault();
+    event?.preventDefault();
     setSubmitting(true);
     setResult(null);
     void (async () => {
@@ -473,14 +480,24 @@ export function CheckoutView({
         <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_380px]">
           {/* Left: guest details form */}
           <form
-            method="post"
-            action="/api/checkout/pay"
-            acceptCharset="UTF-8"
-            onSubmit={handleSubmit}
+            onSubmit={(event) => {
+              // Card payment is started from the button click, not this submit
+              // event. A prevented submit here is what makes Safari reload checkout.
+              if (fields.paymentMethod === "bachs") {
+                event.preventDefault();
+                return;
+              }
+              handleSubmit(event);
+            }}
+            onKeyDown={(event) => {
+              if (fields.paymentMethod !== "bachs" || event.key !== "Enter") return;
+              if (event.target instanceof HTMLTextAreaElement) return;
+              event.preventDefault();
+              handleSubmit();
+            }}
             noValidate
             className="min-w-0 space-y-6"
           >
-            <input type="hidden" name="payload" defaultValue="" />
             {/* 1. Contact / Email */}
             <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-base font-bold uppercase tracking-wider text-black dark:text-white">
@@ -788,13 +805,20 @@ export function CheckoutView({
             <ErrorBanner result={result} onDismiss={() => setResult(null)} />
 
             <Button
-              type="submit"
+              type={fields.paymentMethod === "bachs" ? "button" : "submit"}
               size="lg"
               disabled={
                 submitting ||
                 unavailableCount > 0 ||
                 availablePaymentMethods.length === 0 ||
                 isLoadingShipping
+              }
+              onClick={
+                fields.paymentMethod === "bachs"
+                  ? () => {
+                      handleSubmit();
+                    }
+                  : undefined
               }
               className="w-full sm:w-auto font-display text-sm font-bold uppercase tracking-wider"
             >

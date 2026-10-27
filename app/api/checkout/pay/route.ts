@@ -3,10 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getBachsClient, createBachsCheckoutSession, isBachsConfigured } from "@/lib/bachs";
 import { submitCheckout } from "@/features/checkout/actions";
 import { isValidPaymentGatewayUrl } from "@/features/checkout/lib/navigation";
-import {
-  paymentErrorDocument,
-  paymentGatewayDocument,
-} from "@/features/checkout/lib/payment-redirect";
+import { paymentErrorDocument } from "@/features/checkout/lib/payment-redirect";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,22 +16,20 @@ const HTML_HEADERS = {
 /**
  * Payment handoff.
  *
- * iOS Safari drops `window.location` changes that happen after an async
- * checkout call. Android still performs them. Checkout therefore submits a
- * real form POST (same turn as the tap). This route places the order and
- * redirects, same-origin, to the GET handoff. That document meta-refreshes
- * onto the payment gateway, which WebKit follows. A bare cross-origin 303
- * after a scripted navigation does not open on iOS.
+ * Checkout submits a real form POST in the same turn as the tap. This route
+ * places the order and answers with one 303 straight to the Bachs checkout
+ * URL. Safari follows that user-initiated redirect. An in-between page that
+ * immediately script-redirects is treated as a bounce, and Safari sends the
+ * customer back to checkout.
  */
 
 function htmlResponse(body: string, status = 200) {
   return new NextResponse(body, { status, headers: HTML_HEADERS });
 }
 
-function gatewayResponse(checkoutUrl: string) {
-  const html = paymentGatewayDocument(checkoutUrl);
-  if (!html) return null;
-  return htmlResponse(html);
+function gatewayRedirect(checkoutUrl: string) {
+  if (!isValidPaymentGatewayUrl(checkoutUrl)) return null;
+  return NextResponse.redirect(checkoutUrl, { status: 303 });
 }
 
 function isSameSitePost(request: Request): boolean {
@@ -185,7 +180,7 @@ export async function GET(request: Request) {
 
     const checkoutUrl = await resolveGatewayUrl(order as OrderRow, siteOrigin);
     if (checkoutUrl) {
-      const response = gatewayResponse(checkoutUrl);
+      const response = gatewayRedirect(checkoutUrl);
       if (response) return response;
     }
 
@@ -231,9 +226,9 @@ export async function POST(request: Request) {
     return htmlResponse(paymentErrorDocument("Payment could not be opened. Go back and try again."), 502);
   }
 
-  const siteOrigin = new URL(request.url).origin;
-  return NextResponse.redirect(
-    `${siteOrigin}/api/checkout/pay?order_id=${encodeURIComponent(result.orderId)}`,
-    { status: 303 },
-  );
+  const response = gatewayRedirect(result.checkoutUrl);
+  if (!response) {
+    return htmlResponse(paymentErrorDocument("Payment could not be opened. Go back and try again."), 502);
+  }
+  return response;
 }

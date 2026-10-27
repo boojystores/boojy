@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET } from "./route";
+import { describe, it, expect, vi } from "vitest";
+import { GET, POST } from "./route";
+import { submitCheckout } from "@/features/checkout/actions";
 
 // Mock Supabase service client
 const mockOrder = {
@@ -36,6 +37,10 @@ vi.mock("@/lib/supabase/service", () => ({
   })),
 }));
 
+vi.mock("@/features/checkout/actions", () => ({
+  submitCheckout: vi.fn(),
+}));
+
 vi.mock("@/lib/bachs", () => ({
   isBachsConfigured: vi.fn(() => true),
   getBachsClient: vi.fn(),
@@ -54,15 +59,44 @@ describe("GET /api/checkout/pay", () => {
     expect(res.headers.get("location")).toBe("https://boojy.store/cart");
   });
 
-  it("returns an HTML handoff that opens the Bachs checkout URL", async () => {
+  it("returns HTTP 303 redirect directly to the Bachs checkout URL", async () => {
     const req = new Request("https://boojy.store/api/checkout/pay?order_id=ord-test-123");
     const res = await GET(req);
-    const body = await res.text();
 
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toContain("text/html");
-    expect(body).toContain("https://checkout.bachs.io/c/chk_test_123");
-    expect(body).toContain('http-equiv="refresh"');
-    expect(res.headers.get("location")).toBeNull();
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("https://checkout.bachs.io/c/chk_test_123");
+  });
+});
+
+describe("POST /api/checkout/pay", () => {
+  it("redirects the browser straight to the Bachs checkout URL", async () => {
+    vi.mocked(submitCheckout).mockResolvedValue({
+      ok: true,
+      orderId: "ord-test-123",
+      orderNumber: "ORD-20261026-0001",
+      totalAmount: 5000,
+      checkoutUrl: "https://checkout.bachs.io/c/chk_from_post",
+    });
+
+    const body = new FormData();
+    body.set(
+      "payload",
+      JSON.stringify({
+        details: { paymentMethod: "bachs" },
+        items: [],
+      }),
+    );
+    const req = new Request("https://boojy.store/api/checkout/pay", {
+      method: "POST",
+      headers: {
+        origin: "https://boojy.store",
+        "sec-fetch-site": "same-origin",
+      },
+      body,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("https://checkout.bachs.io/c/chk_from_post");
   });
 });
