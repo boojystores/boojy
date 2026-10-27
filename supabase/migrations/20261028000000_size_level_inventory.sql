@@ -46,18 +46,8 @@ DROP POLICY IF EXISTS "Admins have full access on product_variants" ON public.pr
 CREATE POLICY "Admins have full access on product_variants"
   ON public.product_variants FOR ALL
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.admin_users au
-      WHERE au.id = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.admin_users au
-      WHERE au.id = auth.uid()
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Service role has full access on product_variants" ON public.product_variants;
 CREATE POLICY "Service role has full access on product_variants"
