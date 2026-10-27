@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import {
   cartCount,
@@ -10,6 +12,7 @@ import {
 } from "@/features/cart/lib/cart";
 import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { Button } from "@/components/ui/button";
+import { BoojyPreloader } from "@/components/boojy-preloader";
 import { priceFormatter } from "@/lib/currency";
 
 export function CartView() {
@@ -54,6 +57,15 @@ function CartContents() {
   const removeItem = useCartStore((state) => state.removeItem);
   const subtotal = cartSubtotal(items);
   const count = cartCount(items);
+  const [navigatingToCheckout, setNavigatingToCheckout] = useState(false);
+  const router = useRouter();
+
+  function handleCheckout(e: React.MouseEvent) {
+    e.preventDefault();
+    setNavigatingToCheckout(true);
+    router.push("/checkout");
+  }
+
   // Keep lines in line with the live catalog (ADR-0013): prices/stock refresh,
   // retired Products get flagged. The returned result drives the notices.
   const reconciled = useCartReconcile();
@@ -120,14 +132,23 @@ function CartContents() {
             Checkout
           </Button>
         ) : (
-          <Button asChild size="lg" className="mt-5 w-full">
-            <Link href="/checkout">Checkout</Link>
+          <Button
+            size="lg"
+            className="mt-5 w-full"
+            onClick={handleCheckout}
+            disabled={navigatingToCheckout}
+          >
+            {navigatingToCheckout ? "Loading checkout…" : "Checkout"}
           </Button>
         )}
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Stock is reserved when you place your order.
         </p>
       </aside>
+
+      {navigatingToCheckout && (
+        <BoojyPreloader fullscreen size="lg" />
+      )}
     </div>
   );
 }

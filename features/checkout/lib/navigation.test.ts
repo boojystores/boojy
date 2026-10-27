@@ -19,7 +19,7 @@ describe("navigateToPaymentGateway", () => {
     expect(() => navigateToPaymentGateway("   ")).not.toThrow();
   });
 
-  it("navigates to same-origin bridge when orderId is provided", () => {
+  it("navigates directly to the target URL using standard web procedure", () => {
     const mockWindow = {
       location: {
         href: "",
@@ -28,12 +28,13 @@ describe("navigateToPaymentGateway", () => {
     };
     globalThis.window = mockWindow as any;
 
-    navigateToPaymentGateway("https://checkout.bachs.io/c/123", "ord-999");
+    const testUrl = "https://checkout.bachs.io/c/123";
+    navigateToPaymentGateway(testUrl, "ord-999");
 
-    expect(mockWindow.location.assign).toHaveBeenCalledWith("/api/checkout/pay?order_id=ord-999");
+    expect(mockWindow.location.href).toBe(testUrl);
   });
 
-  it("navigates to direct URL when orderId is not provided", () => {
+  it("navigates to same-origin bridge when targetUrl is missing but orderId is provided", () => {
     const mockWindow = {
       location: {
         href: "",
@@ -42,9 +43,8 @@ describe("navigateToPaymentGateway", () => {
     };
     globalThis.window = mockWindow as any;
 
-    const testUrl = "https://checkout.bachs.io/c/chk_123456";
-    navigateToPaymentGateway(testUrl);
+    navigateToPaymentGateway("", "ord-999");
 
-    expect(mockWindow.location.assign).toHaveBeenCalledWith(testUrl);
+    expect(mockWindow.location.href).toBe("/api/checkout/pay?order_id=ord-999");
   });
 });

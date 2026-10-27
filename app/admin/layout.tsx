@@ -11,7 +11,7 @@ export default function AdminLayout({
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-muted/30">
-          <BoojyPreloader size="md" message="Loading dashboard…" />
+          <BoojyPreloader size="md" />
         </div>
       }
     >

@@ -457,7 +457,7 @@ export function CheckoutView({
   if (!hasHydrated) {
     return (
       <div className="flex min-h-[60vh] w-full items-center justify-center">
-        <BoojyPreloader size="md" message="Loading checkout…" />
+        <BoojyPreloader size="md" />
       </div>
     );
   }
@@ -470,7 +470,7 @@ export function CheckoutView({
     <div className="site-container py-10 relative">
       {submitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-          <BoojyPreloader size="lg" message="Connecting to secure payment…" />
+          <BoojyPreloader size="lg" />
         </div>
       )}
       <Link
@@ -1188,10 +1188,10 @@ function PaymentGatewayHandoffView({
 }: {
   session: { orderId: string; checkoutUrl: string; orderNumber: string; totalAmount: number };
 }) {
-  const payUrl = `/api/checkout/pay?order_id=${encodeURIComponent(session.orderId)}`;
+  const directUrl = session.checkoutUrl || (session.orderId ? `/api/checkout/pay?order_id=${encodeURIComponent(session.orderId)}` : "");
 
   useEffect(() => {
-    // Navigate via the same-origin server redirect bridge immediately on mount
+    // Standard web procedure: direct navigation immediately on mount
     navigateToPaymentGateway(session.checkoutUrl, session.orderId);
   }, [session.checkoutUrl, session.orderId]);
 
@@ -1199,7 +1199,7 @@ function PaymentGatewayHandoffView({
     <div className="site-container py-16 sm:py-24">
       <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
         <div className="mb-6 flex justify-center">
-          <BoojyPreloader size="lg" message="Connecting to secure payment…" />
+          <BoojyPreloader size="lg" />
         </div>
 
         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -1219,9 +1219,9 @@ function PaymentGatewayHandoffView({
 
         <div className="mt-8 space-y-3">
           <a
-            href={payUrl}
+            href={directUrl}
             target="_top"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Proceed to Payment</span>

@@ -6,17 +6,17 @@ import { cn } from "@/lib/utils";
 export interface BoojyPreloaderProps {
   className?: string;
   size?: "sm" | "md" | "lg";
-  message?: string;
+  message?: string; // Kept as optional for backward compatibility, but not rendered
   fullscreen?: boolean;
 }
 
 /**
  * Boojy Preloader: displays the brand mark blinking slowly during loading states.
+ * Renders cleanly with zero text underneath per user directive.
  */
 export function BoojyPreloader({
   className,
   size = "md",
-  message,
   fullscreen = false,
 }: BoojyPreloaderProps) {
   const sizeClasses = {
@@ -28,18 +28,13 @@ export function BoojyPreloader({
   const content = (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-4 select-none",
+        "flex flex-col items-center justify-center select-none",
         className,
       )}
     >
       <div className="relative animate-boojy-blink flex items-center justify-center">
         <BoojyLogo className={sizeClasses} priority />
       </div>
-      {message && (
-        <p className="text-xs uppercase tracking-widest text-muted-foreground animate-pulse">
-          {message}
-        </p>
-      )}
     </div>
   );
 

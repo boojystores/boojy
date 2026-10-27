@@ -72,83 +72,8 @@ export const BUILTIN_LGAS: NigerianLga[] = NIGERIA_STATES_AND_LGAS.flatMap((s, s
   }));
 });
 
-// Helper lookups for initial zones
-const lagosState = BUILTIN_STATES.find((s) => s.name === "Lagos")!;
-const etiOsaLga = BUILTIN_LGAS.find((l) => l.state_id === lagosState?.id && (l.name === "Eti-Osa" || l.name === "Eti Osa"));
-const ikejaLga = BUILTIN_LGAS.find((l) => l.state_id === lagosState?.id && l.name === "Ikeja");
-
-const fctState = BUILTIN_STATES.find((s) => s.name === "Federal Capital Territory")!;
-const amacLga = BUILTIN_LGAS.find((l) => l.state_id === fctState?.id && (l.name === "Municipal Area Council" || l.name.includes("Municipal")));
-
-const imoState = BUILTIN_STATES.find((s) => s.name === "Imo")!;
-const owerriMunicipalLga = BUILTIN_LGAS.find((l) => l.state_id === imoState?.id && l.name === "Owerri Municipal");
-
-// Built-in initial Delivery Zones for major hubs (each strictly tied to its LGA)
-export const BUILTIN_DELIVERY_ZONES: DeliveryZone[] = [
-  // Lagos zones (Eti-Osa and Ikeja)
-  {
-    id: "00000000-0000-0003-0025-000000000001",
-    state_id: lagosState.id,
-    lga_id: etiOsaLga?.id || null,
-    name: "Victoria Island",
-    aliases: ["V.I", "VI", "Victoria Island Extension"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-  {
-    id: "00000000-0000-0003-0025-000000000002",
-    state_id: lagosState.id,
-    lga_id: etiOsaLga?.id || null,
-    name: "Lekki Phase 1",
-    aliases: ["Lekki 1", "Admiralty", "Lekki Phase I"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-  {
-    id: "00000000-0000-0003-0025-000000000003",
-    state_id: lagosState.id,
-    lga_id: etiOsaLga?.id || null,
-    name: "Ikoyi",
-    aliases: ["Old Ikoyi", "Banana Island", "Parkview"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-  {
-    id: "00000000-0000-0003-0025-000000000004",
-    state_id: lagosState.id,
-    lga_id: ikejaLga?.id || null,
-    name: "Ikeja GRA / Central",
-    aliases: ["GRA Ikeja", "Alausa", "Allen", "Opebi"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-  // FCT Abuja zones (AMAC)
-  {
-    id: "00000000-0000-0003-0015-000000000001",
-    state_id: fctState.id,
-    lga_id: amacLga?.id || null,
-    name: "Abuja Central / Maitama / Wuse 2",
-    aliases: ["Maitama", "Wuse 2", "Garki", "Asokoro"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-  // Imo zone (Owerri Municipal)
-  {
-    id: "00000000-0000-0003-0017-000000000001",
-    state_id: imoState.id,
-    lga_id: owerriMunicipalLga?.id || null,
-    name: "Owerri Urban / Ikenegbu / Aladinma",
-    aliases: ["Ikenegbu", "Aladinma", "Works Layout", "New Owerri"],
-    base_price_kobo: null,
-    estimated_days: null,
-    is_active: true,
-  },
-];
+// Built-in initial Delivery Zones (empty by default; configured dynamically via DB / admin dashboard)
+export const BUILTIN_DELIVERY_ZONES: DeliveryZone[] = [];
 
 // Built-in initial Pickup Store Locations (empty by default; configured via admin)
 export const BUILTIN_PICKUP_LOCATIONS: PickupLocation[] = [];
@@ -241,7 +166,7 @@ export function buildDefaultShippingRates(): ShippingRate[] {
     scope: "state",
   });
 
-  // 5. Imo State Rates (Owerri hub)
+  // 5. Imo State Rates
   rates.push({
     id: "rate-standard-imo",
     shipping_method_id: "standard",

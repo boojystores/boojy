@@ -155,7 +155,7 @@ export async function submitCheckout(input: {
   }
   if (details.shippingMethodId === "pickup") {
     if (!details.deliveryAddress || !details.deliveryAddress.trim()) {
-      details.deliveryAddress = "Store Pickup — Boojy Flagship Store, Victoria Island, Lagos";
+      details.deliveryAddress = "Store Pickup";
     }
   } else if (
     typeof details.deliveryAddress !== "string" ||
@@ -236,7 +236,7 @@ export async function submitCheckout(input: {
     details.shippingFeeKobo = 0;
     details.shippingMethodId = "pickup";
     if (!details.deliveryAddress || !details.deliveryAddress.trim()) {
-      details.deliveryAddress = "Store Pickup — Boojy Flagship Store, Victoria Island, Lagos";
+      details.deliveryAddress = "Store Pickup";
     }
   } else if (details.stateId) {
     const { calculateShippingOptionsServer } = await import("@/features/shipping/actions");
@@ -345,7 +345,13 @@ export async function submitCheckout(input: {
       const host = headersList.get("x-forwarded-host") || headersList.get("host");
       const proto = headersList.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
       let siteUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app");
-      if (siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) {
+      if (
+        siteUrl.includes("localhost") ||
+        siteUrl.includes("127.0.0.1") ||
+        siteUrl.includes("0.0.0.0") ||
+        siteUrl.includes(".local") ||
+        /^https?:\/\/(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01]))/i.test(siteUrl)
+      ) {
         siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app";
       }
 

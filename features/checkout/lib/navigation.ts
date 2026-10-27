@@ -1,9 +1,8 @@
 /**
  * Cross-browser Payment Gateway Navigator
  *
- * Uses the same-origin server redirect bridge (`/api/checkout/pay?order_id=...`)
- * to guarantee that iOS Safari, Mobile WebKit, and in-app browsers seamlessly load
- * the payment gateway without hitting popup blockers or user-gesture expiration.
+ * Uses standard web procedures: direct top-level navigation to the external gateway URL.
+ * Bypasses intermediate redirect hops and works reliably on iOS Safari, Chrome, and desktop browsers.
  */
 
 export function navigateToPaymentGateway(
@@ -12,17 +11,16 @@ export function navigateToPaymentGateway(
 ): void {
   if (typeof window === "undefined") return;
 
-  // Prefer the same-origin server redirect bridge if orderId is provided
-  // Same-origin navigation is NEVER blocked or discarded by iOS Safari
-  const destination = orderId
-    ? `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`
-    : targetUrl?.trim();
+  // Standard web procedure: prioritize direct navigation to the payment gateway
+  const destination =
+    targetUrl?.trim() ||
+    (orderId ? `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}` : null);
 
   if (!destination) return;
 
   try {
-    window.location.assign(destination);
-  } catch {
     window.location.href = destination;
+  } catch {
+    window.location.assign(destination);
   }
 }

@@ -93,8 +93,14 @@ export async function createBachsCheckoutSession(
   let cleanSiteUrl = params.siteUrl.replace(/\/+$/, "");
 
   // Bachs.io API requires a publicly accessible URL for success_url and cancel_url.
-  // In local development (localhost / 127.0.0.1), fall back to NEXT_PUBLIC_SITE_URL or live domain.
-  if (cleanSiteUrl.includes("localhost") || cleanSiteUrl.includes("127.0.0.1")) {
+  // In local development (localhost / 127.0.0.1 / private LAN IPs), fall back to NEXT_PUBLIC_SITE_URL or live domain.
+  if (
+    cleanSiteUrl.includes("localhost") ||
+    cleanSiteUrl.includes("127.0.0.1") ||
+    cleanSiteUrl.includes("0.0.0.0") ||
+    cleanSiteUrl.includes(".local") ||
+    /^https?:\/\/(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01]))/i.test(cleanSiteUrl)
+  ) {
     cleanSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://boojy.vercel.app").replace(/\/+$/, "");
   }
 

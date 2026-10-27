@@ -125,7 +125,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
   if (loading) {
     return (
       <div className="site-container flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
-        <BoojyPreloader size="lg" message="Confirming Payment…" />
+        <BoojyPreloader size="lg" />
       </div>
     );
   }
@@ -368,7 +368,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               {orderData.checkoutUrl ? (
                 <Button asChild size="lg" className="w-full sm:w-auto font-display uppercase tracking-wider">
-                  <a href={`/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`}>
+                  <a href={orderData.checkoutUrl}>
                     Continue to Payment <ArrowRight className="ml-1.5 h-4 w-4" />
                   </a>
                 </Button>
