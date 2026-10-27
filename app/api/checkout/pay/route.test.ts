@@ -54,11 +54,15 @@ describe("GET /api/checkout/pay", () => {
     expect(res.headers.get("location")).toBe("https://boojy.store/cart");
   });
 
-  it("returns HTTP 303 redirect directly to the Bachs checkout URL", async () => {
+  it("returns an HTML handoff that opens the Bachs checkout URL", async () => {
     const req = new Request("https://boojy.store/api/checkout/pay?order_id=ord-test-123");
     const res = await GET(req);
+    const body = await res.text();
 
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("https://checkout.bachs.io/c/chk_test_123");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(body).toContain("https://checkout.bachs.io/c/chk_test_123");
+    expect(body).toContain('http-equiv="refresh"');
+    expect(res.headers.get("location")).toBeNull();
   });
 });

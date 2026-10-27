@@ -64,6 +64,9 @@ const noopStorage = {
   removeItem: () => {},
 };
 
+/** Zustand persist key. The payment handoff page clears this after an order is placed. */
+export const CART_STORAGE_KEY = "boojy-cart";
+
 const clientStorage = createJSONStorage(() =>
   typeof window !== "undefined" ? window.localStorage : noopStorage,
 );
@@ -154,7 +157,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: "boojy-cart",
+      name: CART_STORAGE_KEY,
       storage: clientStorage,
       // Only cart lines are persisted — the hydration flag is transient.
       partialize: (state) => ({ items: state.items }),

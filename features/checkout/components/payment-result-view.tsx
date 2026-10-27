@@ -20,10 +20,8 @@ import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import type { PaymentMethod } from "@/features/checkout/lib/checkout";
 import {
   getOrderPaymentStatus,
-  retryBachsPayment,
   type OrderPaymentStatusResult,
 } from "@/features/checkout/actions";
-import { navigateToPaymentGateway } from "@/features/checkout/lib/navigation";
 
 interface PaymentResultViewProps {
   orderId: string;
@@ -32,7 +30,6 @@ interface PaymentResultViewProps {
 
 export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewProps) {
   const [loading, setLoading] = useState(true);
-  const [retrying, setRetrying] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [orderData, setOrderData] = useState<OrderPaymentStatusResult | null>(null);
   const [pollCount, setPollCount] = useState(0);
@@ -105,28 +102,6 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
     }
   }
 
-  async function handleRetry() {
-    if (!orderId || retrying) return;
-    setRetrying(true);
-    try {
-      const res = await retryBachsPayment(orderId);
-      if (res.ok && res.checkoutUrl) {
-        const bridgeUrl = `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`;
-        try {
-          window.location.assign(bridgeUrl);
-        } catch {
-          window.location.href = bridgeUrl;
-        }
-      } else {
-        alert(res.message || "Failed to restart payment session.");
-        setRetrying(false);
-      }
-    } catch {
-      alert("An unexpected error occurred. Please try again.");
-      setRetrying(false);
-    }
-  }
-
   if (loading) {
     return (
       <div className="site-container flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
@@ -159,6 +134,7 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
   const isPaid = orderData.paymentStatus === "paid" || orderData.status === "confirmed";
   const isFailed = isCancelled || orderData.paymentStatus === "failed" || orderData.status === "cancelled";
   const isPending = !isPaid && !isFailed;
+  const payHref = `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`;
 
   return (
     <div className="site-container py-12 md:py-20">
@@ -316,20 +292,10 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button
-                onClick={handleRetry}
-                disabled={retrying}
-                className="w-full sm:w-auto"
-              >
-                {retrying ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing Checkout...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="mr-2 h-4 w-4" /> Retry Payment
-                  </>
-                )}
+              <Button asChild className="w-full sm:w-auto">
+                <a href={payHref}>
+                  <RotateCcw className="mr-2 h-4 w-4" /> Retry Payment
+                </a>
               </Button>
               <Button asChild variant="outline" className="w-full sm:w-auto">
                 <Link href="/checkout">Return to Cart</Link>
@@ -371,30 +337,11 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              {orderData.checkoutUrl ? (
-                <Button asChild size="lg" className="w-full sm:w-auto font-display uppercase tracking-wider">
-                  <a href={orderData.checkoutUrl}>
-                    Continue to Payment <ArrowRight className="ml-1.5 h-4 w-4" />
-                  </a>
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleRetry}
-                  disabled={retrying}
-                  size="lg"
-                  className="w-full sm:w-auto font-display uppercase tracking-wider"
-                >
-                  {retrying ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing Payment…
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="mr-2 h-4 w-4" /> Complete Payment
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button asChild size="lg" className="w-full sm:w-auto font-display uppercase tracking-wider">
+                <a href={payHref}>
+                  Continue to Payment <ArrowRight className="ml-1.5 h-4 w-4" />
+                </a>
+              </Button>
               <Button
                 onClick={() => {
                   setLoading(true);

@@ -5,11 +5,15 @@
  * and desktop browsers according to production web standards.
  *
  * Guarantees:
- * 1. Prioritizes same-tab navigation using window.location.assign()
- * 2. Enforces cryptographic HTTPS domain validation (*.bachs.io, checkout.bachs.io)
- * 3. Never calls window.open() after asynchronous operations (preventing iOS popup suppression)
- * 4. Rejects bare session IDs, javascript: URIs, or guessed URLs
- * 5. Provides structured result codes for error handling and customer retry options
+ * 1. Navigates the current tab with window.location.assign()
+ * 2. Enforces HTTPS and an authorized Bachs host
+ * 3. Does not call window.open()
+ * 4. Rejects bare session IDs, javascript: URIs, and guessed URLs
+ *
+ * iOS Safari drops this call when it runs after an await (the tap is no longer
+ * a user action). Android still allows it. Hosted checkout must submit the
+ * checkout form in the same turn as the tap instead of calling this helper
+ * after submitCheckout() resolves. See app/api/checkout/pay.
  */
 
 /** Authorized production and sandbox domains for Bachs.io */

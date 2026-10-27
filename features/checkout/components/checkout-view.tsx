@@ -22,7 +22,6 @@ import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { type PaymentMethodConfig } from "@/features/checkout/lib/payment-methods";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
-import { navigateToPaymentGateway, isValidPaymentGatewayUrl } from "@/features/checkout/lib/navigation";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import { NigeriaAddressFields, type AddressData } from "@/features/shipping/components/nigeria-address-fields";
 import { calculateShippingOptionsServer } from "@/features/shipping/actions";
@@ -143,6 +142,7 @@ export function CheckoutView({
 
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const hostedPaymentStarted = useRef(false);
   const [result, setResult] = useState<CheckoutActionResponse | null>(null);
 
   // Delivery mode: "ship" (delivery) | "pickup" (store pickup)
@@ -181,13 +181,6 @@ export function CheckoutView({
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedOption, setSelectedOption] = useState<ShippingOption | null>(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
-
-  const [redirectSession, setRedirectSession] = useState<{
-    orderId: string;
-    checkoutUrl: string;
-    orderNumber: string;
-    totalAmount: number;
-  } | null>(null);
 
   // Snapshot of what was ordered, captured before the cart is cleared.
   const [confirmation, setConfirmation] = useState<{
@@ -270,9 +263,11 @@ export function CheckoutView({
     }
   };
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (submitting) return;
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (submitting || hostedPaymentStarted.current) {
+      event.preventDefault();
+      return;
+    }
 
     // Client-side pass
     const errors: Partial<Record<keyof FormFields, string>> = {};
@@ -311,6 +306,7 @@ export function CheckoutView({
     }
 
     if (Object.keys(errors).length > 0 || Object.keys(addrErrors).length > 0) {
+      event.preventDefault();
       setFieldErrors(errors);
       setAddressErrors(addrErrors);
       return;
@@ -319,6 +315,7 @@ export function CheckoutView({
     const chosenOption = deliveryMode === "pickup" ? PICKUP_OPTION : selectedOption;
 
     if (!chosenOption) {
+      event.preventDefault();
       setResult({
         ok: false,
         code: "SHIPPING_UNAVAILABLE",
@@ -362,116 +359,87 @@ export function CheckoutView({
             address.cityName ? address.cityName.trim() + ", " : ""
           }${address.lgaName ? address.lgaName + ", " : ""}${address.stateName || address.stateId}`;
 
+    const details = {
+      fullName: effectiveName,
+      email: fields.email.trim(),
+      contactNumber: effectivePhone,
+      deliveryAddress: formattedDeliveryAddress,
+      paymentMethod: fields.paymentMethod,
+      notes: combinedNotes,
+      recipientName: effectiveName,
+      recipientPhone: effectivePhone,
+      stateId: deliveryMode === "pickup" ? undefined : address.stateId,
+      stateName: deliveryMode === "pickup" ? "Store Pickup" : address.stateName,
+      lgaId: deliveryMode === "pickup" ? undefined : address.lgaId,
+      lgaName: deliveryMode === "pickup" ? pickupCity : address.lgaName,
+      deliveryZoneId: deliveryMode === "pickup" ? undefined : address.deliveryZoneId,
+      cityName: deliveryMode === "pickup" ? pickupCity : address.cityName,
+      streetAddress:
+        deliveryMode === "pickup"
+          ? `${pickupName} — ${pickupAddr}`
+          : address.streetAddress.trim(),
+      landmark:
+        deliveryMode === "pickup"
+          ? activePickupStore?.landmark || undefined
+          : address.landmark?.trim() || undefined,
+      shippingMethodId: chosenOption.methodId,
+      deliveryInstructions: userNotes || undefined,
+    };
+
+    // Bachs must navigate in this same turn. iOS Safari drops location changes
+    // that run after the checkout request resolves; a native form POST stays
+    // tied to the tap, and Android follows it as well.
+    if (fields.paymentMethod === "bachs") {
+      const field = event.currentTarget.elements.namedItem("payload");
+      if (!(field instanceof HTMLInputElement)) {
+        event.preventDefault();
+        setResult({
+          ok: false,
+          code: "UNKNOWN",
+          message: "Could not open payment. Please try again.",
+        });
+        return;
+      }
+      field.value = JSON.stringify({ details, items: lines });
+      hostedPaymentStarted.current = true;
+      return;
+    }
+
+    event.preventDefault();
     setSubmitting(true);
     setResult(null);
-    try {
-      const response = await submitCheckout({
-        details: {
-          fullName: effectiveName,
-          email: fields.email.trim(),
-          contactNumber: effectivePhone,
-          deliveryAddress: formattedDeliveryAddress,
-          paymentMethod: fields.paymentMethod,
-          notes: combinedNotes,
-          recipientName: effectiveName,
-          recipientPhone: effectivePhone,
-          stateId: deliveryMode === "pickup" ? undefined : address.stateId,
-          stateName: deliveryMode === "pickup" ? "Store Pickup" : address.stateName,
-          lgaId: deliveryMode === "pickup" ? undefined : address.lgaId,
-          lgaName: deliveryMode === "pickup" ? pickupCity : address.lgaName,
-          deliveryZoneId: deliveryMode === "pickup" ? undefined : address.deliveryZoneId,
-          cityName: deliveryMode === "pickup" ? pickupCity : address.cityName,
-          streetAddress:
-            deliveryMode === "pickup"
-              ? `${pickupName} — ${pickupAddr}`
-              : address.streetAddress.trim(),
-          landmark:
-            deliveryMode === "pickup"
-              ? activePickupStore?.landmark || undefined
-              : address.landmark?.trim() || undefined,
-          shippingMethodId: chosenOption.methodId,
-          deliveryInstructions: userNotes || undefined,
-        },
-        items: lines,
-      });
+    void (async () => {
+      try {
+        const response = await submitCheckout({
+          details,
+          items: lines,
+        });
 
-      if (response.ok) {
-        if (fields.paymentMethod === "bachs") {
-          const targetUrl = response.checkoutUrl;
-          const orderId = response.orderId;
-
-          // Validate that the payment URL is present and matches the official payment domain
-          if (!targetUrl || !isValidPaymentGatewayUrl(targetUrl)) {
-            setSubmitting(false);
-            setResult({
-              ok: false,
-              code: "UNKNOWN",
-              message:
-                "Could not initialize secure payment. Your order details have been saved — please tap Place Order to retry.",
-            });
-            return;
-          }
-
-          // Clear cart now that order is placed and validated
-          clearCart();
-
-          // Persist order metadata in sessionStorage & localStorage for recovery
-          try {
-            const orderMeta = JSON.stringify({
-              orderNumber: response.orderNumber,
-              orderId,
-              totalAmount: response.totalAmount,
-              checkoutUrl: targetUrl,
-            });
-            sessionStorage.setItem("boojy_pending_order", orderMeta);
-            localStorage.setItem("last_placed_order", orderMeta);
-          } catch {}
-
-          // Display handoff view so customer always has a manual link if browser stalls
-          setRedirectSession({
-            orderId,
-            checkoutUrl: targetUrl,
+        if (response.ok) {
+          const snapshot = [...items];
+          setConfirmation({
             orderNumber: response.orderNumber,
             totalAmount: response.totalAmount,
+            count,
+            lines: snapshot,
+            fullName: effectiveName,
+            deliveryAddress: formattedDeliveryAddress,
+            paymentMethod: fields.paymentMethod,
+            shippingFee: deliveryMode === "pickup" ? 0 : shippingFee,
+            shippingMethodName: deliveryMode === "pickup" ? "Store Pickup" : chosenOption.methodName,
           });
-
-          // Standard Web Procedure for iOS Safari & WebKit:
-          // Direct client-side JS redirects to external domains (cross-origin) are dropped
-          // by WebKit if the async checkout call took >1000ms (user gesture expiration).
-          // We navigate through our same-origin bridge (/api/checkout/pay), which returns
-          // an authoritative HTTP 303 See Other header that iOS Safari handles natively.
-          const bridgeUrl = `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`;
-          try {
-            window.location.assign(bridgeUrl);
-          } catch {
-            window.location.href = bridgeUrl;
-          }
+          clearCart();
           return;
         }
 
-        const snapshot = [...items];
-        setConfirmation({
-          orderNumber: response.orderNumber,
-          totalAmount: response.totalAmount,
-          count,
-          lines: snapshot,
-          fullName: effectiveName,
-          deliveryAddress: formattedDeliveryAddress,
-          paymentMethod: fields.paymentMethod,
-          shippingFee: deliveryMode === "pickup" ? 0 : shippingFee,
-          shippingMethodName: deliveryMode === "pickup" ? "Store Pickup" : chosenOption.methodName,
-        });
-        clearCart();
-        return;
+        if (response.code === "VALIDATION" && response.field) {
+          setFieldErrors((prev) => ({ ...prev, [response.field!]: response.message }));
+        }
+        setResult(response);
+      } finally {
+        setSubmitting(false);
       }
-
-      if (response.code === "VALIDATION" && response.field) {
-        setFieldErrors((prev) => ({ ...prev, [response.field!]: response.message }));
-      }
-      setResult(response);
-    } finally {
-      setSubmitting(false);
-    }
+    })();
   }
 
   if (!hasHydrated) {
@@ -480,10 +448,6 @@ export function CheckoutView({
         <BoojyPreloader size="md" />
       </div>
     );
-  }
-
-  if (redirectSession) {
-    return <PaymentGatewayHandoffView session={redirectSession} />;
   }
 
   return (
@@ -508,7 +472,15 @@ export function CheckoutView({
       ) : (
         <div className="mt-8 grid gap-6 sm:gap-8 lg:grid-cols-[1fr_380px]">
           {/* Left: guest details form */}
-          <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-6">
+          <form
+            method="post"
+            action="/api/checkout/pay"
+            acceptCharset="UTF-8"
+            onSubmit={handleSubmit}
+            noValidate
+            className="min-w-0 space-y-6"
+          >
+            <input type="hidden" name="payload" defaultValue="" />
             {/* 1. Contact / Email */}
             <section className="rounded-xl border border-border/50 bg-card/10 backdrop-blur-sm p-4 sm:p-5">
               <h2 className="text-base font-bold uppercase tracking-wider text-black dark:text-white">
@@ -1199,57 +1171,6 @@ function EmptyCheckout() {
       <Button asChild className="mt-6">
         <Link href="/products">Browse collection</Link>
       </Button>
-    </div>
-  );
-}
-
-function PaymentGatewayHandoffView({
-  session,
-}: {
-  session: { orderId: string; checkoutUrl: string; orderNumber: string; totalAmount: number };
-}) {
-  const directUrl = session.checkoutUrl;
-  const bridgeUrl = session.orderId
-    ? `/api/checkout/pay?order_id=${encodeURIComponent(session.orderId)}`
-    : directUrl;
-  const paymentLink = directUrl || bridgeUrl;
-
-  return (
-    <div className="site-container py-16 sm:py-24">
-      <div className="mx-auto max-w-md rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl sm:p-8 backdrop-blur-sm animate-in fade-in-50 zoom-in-95">
-        <div className="mb-6 flex justify-center">
-          <BoojyPreloader size="lg" />
-        </div>
-
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-          Order Reserved · {session.orderNumber}
-        </span>
-
-        <h2 className="mt-4 font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">
-          Redirecting to Payment…
-        </h2>
-
-        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-          Transferring you to Bachs to complete your payment of{" "}
-          <span className="font-semibold text-foreground">
-            {priceFormatter.format(session.totalAmount)}
-          </span>.
-        </p>
-
-        <div className="mt-8 space-y-3">
-          <a
-            href={paymentLink}
-            rel="noopener"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-6 py-4 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span>Pay {priceFormatter.format(session.totalAmount)} on Bachs</span>
-            <span aria-hidden="true">&rarr;</span>
-          </a>
-          <p className="text-xs text-muted-foreground">
-            Tap the button above if your browser does not open the payment gateway automatically.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
