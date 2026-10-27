@@ -182,7 +182,7 @@ function installPlaceOrder(mock: MockSupabase): void {
         quantity: line.quantity,
         unit_price: product.price,
       });
-      product.stock_quantity -= line.quantity;
+      // Stock is deducted only upon payment confirmation, not at initial checkout creation.
     }
 
     return {
@@ -259,10 +259,10 @@ describe("placeOrder (ticket 06)", () => {
       ]),
     );
 
-    // Stock deducted (ADR-0002).
+    // Stock remains untouched at checkout creation; deducted only upon payment confirmation.
     const products = mock.db.products as ProductRow[];
-    expect(products.find((p) => p.id === "p1")!.stock_quantity).toBe(8);
-    expect(products.find((p) => p.id === "p2")!.stock_quantity).toBe(2);
+    expect(products.find((p) => p.id === "p1")!.stock_quantity).toBe(10);
+    expect(products.find((p) => p.id === "p2")!.stock_quantity).toBe(3);
   });
 
   it("allocates unique sequential order numbers across orders", async () => {
