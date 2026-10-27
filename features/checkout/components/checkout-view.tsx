@@ -22,7 +22,7 @@ import { useCartReconcile } from "@/features/cart/lib/use-cart-reconcile";
 import { type PaymentMethod } from "@/features/checkout/lib/checkout";
 import { type PaymentMethodConfig } from "@/features/checkout/lib/payment-methods";
 import { submitCheckout, type CheckoutActionResponse } from "@/features/checkout/actions";
-import { navigateToPaymentGateway } from "@/features/checkout/lib/navigation";
+import { navigateToPaymentGateway, isValidPaymentGatewayUrl } from "@/features/checkout/lib/navigation";
 import { downloadReceipt } from "@/features/tracking/lib/download-receipt";
 import { NigeriaAddressFields, type AddressData } from "@/features/shipping/components/nigeria-address-fields";
 import { calculateShippingOptionsServer } from "@/features/shipping/actions";
@@ -396,27 +396,38 @@ export function CheckoutView({
       });
 
       if (response.ok) {
-        if (response.checkoutUrl) {
+        if (fields.paymentMethod === "bachs") {
           const targetUrl = response.checkoutUrl;
           const orderId = response.orderId;
 
-          // Clear cart now that order is placed
+          // Validate that the payment URL is present and matches the official payment domain
+          if (!targetUrl || !isValidPaymentGatewayUrl(targetUrl)) {
+            setSubmitting(false);
+            setResult({
+              ok: false,
+              code: "UNKNOWN",
+              message:
+                "Could not initialize secure payment. Your order details have been saved — please tap Place Order to retry.",
+            });
+            return;
+          }
+
+          // Clear cart now that order is placed and validated
           clearCart();
 
-          // Persist order metadata in sessionStorage for seamless return or history recovery
+          // Persist order metadata in sessionStorage & localStorage for recovery
           try {
-            sessionStorage.setItem(
-              "boojy_pending_order",
-              JSON.stringify({
-                orderNumber: response.orderNumber,
-                orderId,
-                totalAmount: response.totalAmount,
-                checkoutUrl: targetUrl,
-              }),
-            );
+            const orderMeta = JSON.stringify({
+              orderNumber: response.orderNumber,
+              orderId,
+              totalAmount: response.totalAmount,
+              checkoutUrl: targetUrl,
+            });
+            sessionStorage.setItem("boojy_pending_order", orderMeta);
+            localStorage.setItem("last_placed_order", orderMeta);
           } catch {}
 
-          // Display redirecting state immediately so user gets clear visual feedback
+          // Display handoff view so customer always has a manual link if browser stalls
           setRedirectSession({
             orderId,
             checkoutUrl: targetUrl,
@@ -424,8 +435,8 @@ export function CheckoutView({
             totalAmount: response.totalAmount,
           });
 
-          // Perform robust, same-origin server redirect bridge navigation
-          navigateToPaymentGateway(targetUrl, orderId);
+          // Navigate directly using window.location.assign(paymentUrl)
+          navigateToPaymentGateway(targetUrl);
           return;
         }
 
@@ -809,7 +820,7 @@ export function CheckoutView({
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {fields.paymentMethod === "bachs" ? "Connecting to Payment…" : "Placing order…"}
+                  {fields.paymentMethod === "bachs" ? "Preparing secure payment…" : "Placing order…"}
                 </>
               ) : fields.paymentMethod === "bachs" ? (
                 `Proceed to Payment · ${priceFormatter.format(orderTotal)}`
@@ -1192,8 +1203,8 @@ function PaymentGatewayHandoffView({
 
   useEffect(() => {
     // Standard web procedure: direct navigation immediately on mount
-    navigateToPaymentGateway(session.checkoutUrl, session.orderId);
-  }, [session.checkoutUrl, session.orderId]);
+    navigateToPaymentGateway(session.checkoutUrl);
+  }, [session.checkoutUrl]);
 
   return (
     <div className="site-container py-16 sm:py-24">

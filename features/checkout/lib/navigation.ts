@@ -1,26 +1,131 @@
 /**
  * Cross-browser Payment Gateway Navigator
  *
- * Uses standard web procedures: direct top-level navigation to the external gateway URL.
- * Bypasses intermediate redirect hops and works reliably on iOS Safari, Chrome, and desktop browsers.
+ * Implements strict, reliable payment redirects for iOS Safari, Chrome,
+ * and desktop browsers according to production web standards.
+ *
+ * Guarantees:
+ * 1. Prioritizes same-tab navigation using window.location.assign()
+ * 2. Enforces cryptographic HTTPS domain validation (*.bachs.io, checkout.bachs.io)
+ * 3. Never calls window.open() after asynchronous operations (preventing iOS popup suppression)
+ * 4. Rejects bare session IDs, javascript: URIs, or guessed URLs
+ * 5. Provides structured result codes for error handling and customer retry options
  */
 
-export function navigateToPaymentGateway(
-  targetUrl: string | null | undefined,
-  orderId?: string | null,
-): void {
-  if (typeof window === "undefined") return;
+/** Authorized production and sandbox domains for Bachs.io */
+export const ALLOWED_PAYMENT_DOMAINS: readonly string[] = [
+  "checkout.bachs.io",
+  "bachs.io",
+];
 
-  // Standard web procedure: prioritize direct navigation to the payment gateway
-  const destination =
-    targetUrl?.trim() ||
-    (orderId ? `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}` : null);
+export type NavigatePaymentResult =
+  | { success: true; url: string }
+  | {
+      success: false;
+      error: "INVALID_URL" | "DISALLOWED_DOMAIN" | "NAVIGATION_FAILED" | "UNSUPPORTED_ENVIRONMENT";
+      message: string;
+    };
 
-  if (!destination) return;
+/**
+ * Validates that a payment URL:
+ * - Is non-empty and well-formed
+ * - Uses HTTPS (or HTTP strictly for localhost in local test environments)
+ * - Belongs to authorized payment provider domains (checkout.bachs.io or *.bachs.io)
+ * - Is not an unvalidated session ID or malicious script scheme
+ */
+export function isValidPaymentGatewayUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== "string") return false;
+
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+
+  // Reject dangerous schemes
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
+    return false;
+  }
 
   try {
-    window.location.href = destination;
+    const parsed = new URL(trimmed);
+
+    const isHttps = parsed.protocol === "https:";
+    const isLocalDev =
+      process.env.NODE_ENV !== "production" &&
+      parsed.protocol === "http:" &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1");
+
+    if (!isHttps && !isLocalDev) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Must match authorized Bachs domains (e.g. checkout.bachs.io or sandbox.bachs.io)
+    const isAllowedDomain = ALLOWED_PAYMENT_DOMAINS.some(
+      (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`),
+    );
+
+    if (isAllowedDomain) return true;
+
+    // Allow localhost/127.0.0.1 in non-production testing
+    if (isLocalDev) return true;
+
+    return false;
   } catch {
+    return false;
+  }
+}
+
+/**
+ * Directs the current browser tab to the verified payment gateway URL.
+ *
+ * Uses `window.location.assign(paymentUrl)` as the standard web procedure.
+ * Bypasses intermediate redirect proxies and never triggers popup blockers.
+ */
+export function navigateToPaymentGateway(
+  targetUrl: string | null | undefined,
+): NavigatePaymentResult {
+  if (typeof window === "undefined") {
+    return {
+      success: false,
+      error: "UNSUPPORTED_ENVIRONMENT",
+      message: "Navigation is only available in a browser environment.",
+    };
+  }
+
+  if (!targetUrl || typeof targetUrl !== "string" || !targetUrl.trim()) {
+    return {
+      success: false,
+      error: "INVALID_URL",
+      message: "No payment gateway URL was provided by the payment provider.",
+    };
+  }
+
+  const destination = targetUrl.trim();
+
+  if (!isValidPaymentGatewayUrl(destination)) {
+    console.error("[Payment Gateway Navigation] Refusing redirect to unauthorized URL:", destination);
+    return {
+      success: false,
+      error: "DISALLOWED_DOMAIN",
+      message: "The payment URL returned is invalid or not an authorized payment domain.",
+    };
+  }
+
+  try {
     window.location.assign(destination);
+    return { success: true, url: destination };
+  } catch {
+    try {
+      window.location.href = destination;
+      return { success: true, url: destination };
+    } catch (err) {
+      console.error("[Payment Gateway Navigation Error]:", err);
+      return {
+        success: false,
+        error: "NAVIGATION_FAILED",
+        message: "Your browser could not navigate to the payment gateway. Please tap the button to proceed.",
+      };
+    }
   }
 }

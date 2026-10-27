@@ -132,9 +132,24 @@ export async function createBachsCheckoutSession(
     expires_in_minutes: 60, // 1 hour checkout expiration window
   };
 
-  const session = await bachs.checkoutSessions.create(sessionRequest, {
-    idempotencyKey: `chk_${params.orderId}`,
-  });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            "Payment session initialization timed out. Please check your connection and tap to retry.",
+          ),
+        ),
+      15000,
+    ),
+  );
+
+  const session = await Promise.race([
+    bachs.checkoutSessions.create(sessionRequest, {
+      idempotencyKey: `chk_${params.orderId}`,
+    }),
+    timeoutPromise,
+  ]);
 
   return session;
 }
