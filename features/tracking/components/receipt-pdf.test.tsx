@@ -55,4 +55,29 @@ describe("ReceiptDocument", () => {
     const imageElement = React.Children.toArray(header.props.children)[0] as any;
     expect(imageElement.props.src).toBe("data:image/png;base64,custom-test-logo");
   });
+
+  it("safely handles long delivery addresses and long item names without errors", () => {
+    const longAddressData: ReceiptData = {
+      ...mockReceiptData,
+      deliveryAddress:
+        "Flat 4B, Admiralty Towers, Opposite Ebeano Supermarket, Plot 12 Admiralty Way, Lekki Phase 1, Eti-Osa LGA, Lagos State, Nigeria. Gate code: 4421. Call 08012345678 upon arrival.",
+      customerName: "Dr. Oluwaseun Emmanuel Adebayo-Okonkwo",
+      shippingFee: 3500,
+      shippingMethodName: "Standard Nationwide Doorstep Delivery - Outside Lagos State",
+      items: [
+        {
+          name: "Boojy Heavyweight Oversized French Terry Boxy Fit Streetwear Hoodie - Vintage Washed Onyx Black",
+          size: "XL",
+          quantity: 2,
+          unitPrice: 35000,
+        },
+      ],
+    };
+
+    const doc = ReceiptDocument({ data: longAddressData });
+    expect(doc).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = React.Children.toArray(doc.props.children)[0] as any;
+    expect(page).toBeDefined();
+  });
 });

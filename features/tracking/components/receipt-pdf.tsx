@@ -10,17 +10,18 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
-    fontSize: 10,
+    padding: 36,
+    fontSize: 9.5,
     fontFamily: "Helvetica",
     color: "#1a1714",
+    backgroundColor: "#ffffff",
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 20,
     borderBottomWidth: 1.5,
     borderBottomColor: "#1a1714",
     borderBottomStyle: "solid",
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   logo: {
     width: 120,
@@ -34,7 +35,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   sectionTitle: {
     fontSize: 8,
@@ -44,21 +45,31 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
+  orderNumber: {
+    fontSize: 13,
+    fontWeight: "bold",
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    alignItems: "flex-start",
+    marginBottom: 5,
+    width: "100%",
   },
   label: {
     color: "#6b6560",
+    fontSize: 9.5,
+    width: "30%",
+    paddingRight: 6,
   },
   value: {
     fontWeight: "bold",
-  },
-  orderNumber: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 4,
+    fontSize: 9.5,
+    width: "70%",
+    textAlign: "right",
+    lineHeight: 1.35,
   },
   tableHeader: {
     flexDirection: "row",
@@ -72,56 +83,102 @@ const styles = StyleSheet.create({
     color: "#9c9590",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    width: "100%",
+    alignItems: "center",
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: "#f0ece6",
     borderBottomStyle: "solid",
+    alignItems: "flex-start",
+    width: "100%",
   },
   colName: {
-    flex: 3,
-    fontSize: 10,
+    width: "46%",
+    paddingRight: 8,
+  },
+  colNameText: {
+    fontSize: 9.5,
+    color: "#1a1714",
+    lineHeight: 1.3,
+  },
+  colSizeText: {
+    fontSize: 8,
+    color: "#6b6560",
+    marginTop: 2,
   },
   colQty: {
-    flex: 1,
+    width: "14%",
     textAlign: "center",
-    fontSize: 10,
+    fontSize: 9.5,
   },
   colPrice: {
-    flex: 1.5,
+    width: "20%",
     textAlign: "right",
-    fontSize: 10,
+    fontSize: 9.5,
+    paddingRight: 4,
   },
   colTotal: {
-    flex: 1.5,
+    width: "20%",
     textAlign: "right",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "bold",
   },
-  totalSection: {
-    marginTop: 16,
-    borderTopWidth: 2,
-    borderTopColor: "#1a1714",
-    borderTopStyle: "solid",
-    paddingTop: 12,
+  shippingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginTop: 8,
+    width: "100%",
+  },
+  shippingLabel: {
+    color: "#6b6560",
+    fontSize: 9.5,
+    width: "70%",
+    paddingRight: 8,
+    lineHeight: 1.35,
+  },
+  shippingValue: {
+    fontWeight: "bold",
+    fontSize: 9.5,
+    width: "30%",
+    textAlign: "right",
+  },
+  totalSection: {
+    marginTop: 14,
+    borderTopWidth: 1.5,
+    borderTopColor: "#1a1714",
+    borderTopStyle: "solid",
+    paddingTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "bold",
+    textAlign: "right",
   },
   footer: {
-    marginTop: 40,
+    marginTop: 32,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f0ece6",
+    borderTopStyle: "solid",
     textAlign: "center",
     color: "#9c9590",
-    fontSize: 9,
+    fontSize: 8.5,
+    lineHeight: 1.4,
+    width: "100%",
   },
 });
 
@@ -218,9 +275,9 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
           {data.items.map((item, i) => (
             <View key={i} style={styles.tableRow}>
               <View style={styles.colName}>
-                <Text>{item.name}</Text>
+                <Text style={styles.colNameText}>{item.name}</Text>
                 {item.size ? (
-                  <Text style={{ fontSize: 8, color: "#6b6560", marginTop: 2 }}>
+                  <Text style={styles.colSizeText}>
                     Size: {item.size}
                   </Text>
                 ) : null}
@@ -235,11 +292,11 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
         </View>
 
         {data.shippingFee !== undefined && (
-          <View style={[styles.row, { marginTop: 10 }]}>
-            <Text style={styles.label}>
+          <View style={styles.shippingRow}>
+            <Text style={styles.shippingLabel}>
               Delivery ({data.shippingMethodName || "Shipping"}):
             </Text>
-            <Text style={styles.value}>
+            <Text style={styles.shippingValue}>
               {data.shippingFee === 0 ? "FREE" : priceFmt(data.shippingFee)}
             </Text>
           </View>
