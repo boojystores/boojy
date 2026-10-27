@@ -1,193 +1,157 @@
-# Cube Store
+# Boojy Storefront & Admin
 
-A complete e-commerce storefront and admin dashboard built with [Next.js](https://nextjs.org) and [Supabase](https://supabase.com).
+Modern, high-performance e-commerce platform and management dashboard for **Boojy**, a contemporary clothing and lifestyle brand. Built with [Next.js](https://nextjs.org), [Supabase](https://supabase.com), and integrated with [Bachs.io](https://bachs.io) for secure online payments.
 
-Customers browse a responsive storefront (catalog, product details, cart, guest checkout) and place orders **without creating an account**. Supabase Auth exists solely to gate the **Admin dashboard** at `/admin` — a role-protected area for managing the catalog, orders, and customers.
+---
 
-All 11 feature tickets are implemented and resolved, with **143/143 unit tests**, clean `tsc`/ESLint, and a verified production build.
+## Overview
 
-> **Seeded Admin account** — sign in at `/admin` with email **`admin@example.com`** and password **`admin123`**.
+Boojy provides a frictionless, premium shopping experience for customers and an administrative dashboard for order fulfillment, inventory tracking, product management, and delivery logistics.
 
-## Features
+- **Storefront**: Guest-first shopping with persistent bag management, size variant selections, dynamic Nigerian shipping calculations, store pickup hubs, and instant online checkout.
+- **Admin Portal** (`/admin`): Role-gated dashboard for tracking sales, updating order fulfillment states, managing clothing collections and imagery, configuring delivery zones, and downloading order reports.
 
-**Storefront (guest-only, no account needed)**
+---
 
-- Responsive home page with hero banner, featured category grid, and featured products
-- Product catalog with **live search**, category filter, price sorting, and pagination — state preserved in the URL
-- Product details with image, stock-availability badge, **quantity selector capped at stock**, and related products
-- Cart powered by **Zustand + `localStorage`** (persists between visits), quantity updates capped at stock
-- Guest checkout: name / email / contact / address / notes, record-only payment method (e-wallet / bank transfer)
-- **Atomic order placement** — per-day `ORD-YYYYMMDD-XXXX` order numbers, price snapshots, immediate stock deduction, per-item stock rejection, confirmation modal with order summary
+## Core Features
 
-**Admin (role-gated at `/admin`)**
+### 🛍️ Storefront
+- **Modern Catalog**: Curated apparel collections with live search, category filters, and sorting.
+- **Product Details & Sizing**: Multi-image product showcases, clothing size selector (e.g. S, M, L, XL, XXL), and real-time inventory validation.
+- **Persistent Shopping Bag**: Powered by Zustand and local storage with automatic catalog synchronization.
+- **Dynamic Nigerian Delivery & Pickups**: Real-time shipping calculation across Nigerian States and LGAs, custom delivery zones, and free Store Pickup locations.
+- **Bachs Payment Gateway**: Seamless card, bank transfer, and USSD payments with webhook verification and automatic status reconciliation.
+- **Inventory Protection Flow**: Stock availability is validated at checkout, but inventory is **deducted only after payment is confirmed**. Abandoned, cancelled, or failed checkouts never deplete store inventory.
+- **Order Tracking & Receipts**: Real-time order tracking and downloadable PDF customer receipts with full order and delivery details.
 
-- KPI dashboard with six live cards (products, orders, pending, completed, customers, sales — sales excludes cancelled)
-- **Categories** — create, rename (auto-slug), delete with a guard (categories holding products are protected)
-- **Products** — searchable/filterable table, create/edit modal, **image upload to Supabase Storage** (jpg/png/webp ≤ 5 MB, preview + validation, auto-compressed server-side to WebP ≤ 1600px; replaced/deleted images are removed from the bucket), active/inactive visibility toggle
-- **Orders** — filterable list, status badges, **lifecycle transitions** (`pending → confirmed → preparing → shipped → completed`), **cancel from any state except completed with automatic stock restore**, order detail view, **CSV export** of the current filtered view
-- **Customers** — searchable/sortable list with **live order counts and total spend** (computed at query time; cancelled orders excluded)
+### ⚙️ Admin Dashboard (`/admin`)
+- **Key Metrics & KPIs**: Live metrics covering total revenue, order volume, pending fulfillment, customer counts, and product catalog health.
+- **Product Management**: Create, edit, and archive products; multi-image uploads with automatic server-side WebP optimization; size variants and stock counts.
+- **Order Processing**: End-to-end lifecycle management (`pending → confirmed → preparing → shipped → completed`) with automated stock restoration upon cancellation.
+- **Logistics & Locations**: Manage delivery zones, state/LGA shipping rates, and physical store pickup hubs.
+- **Data Export**: One-click CSV export for order fulfillment and accounting.
 
-## Stack
+---
 
-- **Next.js** (App Router, React 19) — server components, server actions, streaming
-- **Supabase** — PostgreSQL (RLS-enabled), Auth (`@supabase/ssr` cookies), Storage
-- **Zustand** — persisted cart state
-- **Tailwind CSS** + **shadcn/ui** components
-- **next-themes** — light / dark / system theming
-- **Vitest** — unit tests against a mocked Supabase client
+## Technology Stack
 
-## Getting started
+- **Framework**: [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions)
+- **Database & Auth**: [Supabase](https://supabase.com) (PostgreSQL with Row Level Security, SSR Cookies, Realtime)
+- **Payment Gateway**: [Bachs.io](https://bachs.io) via `@bachs/sdk`
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Styling**: Tailwind CSS & Radix UI primitives
+- **Testing**: [Vitest](https://vitest.dev) (216+ automated unit tests across 23 test suites)
 
-1. **Install dependencies:**
+---
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. **Create a Supabase project** at [database.new](https://database.new).
+### 1. Clone & Install Dependencies
 
-3. **Set the environment variables** — see [Environment variables](#environment-variables) below.
+```bash
+git clone https://github.com/boojystores/boojy.git
+cd boojy
+npm install
+```
 
-4. **Apply the database migrations** (see [Database](#database) below).
+### 2. Environment Configuration
 
-5. **Run the development server:**
+Create a `.env.local` file in the root directory:
 
-   ```bash
-   npm run dev
-   ```
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-or-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-   The app runs at [localhost:3000](http://localhost:3000).
+# Bachs.io Payment Gateway
+BACHS_SECRET_KEY=sk_live_...
+BACHS_WEBHOOK_SECRET=whsec_...
+BACHS_ENVIRONMENT=production
 
-### Environment variables
+# Public Site URL
+NEXT_PUBLIC_SITE_URL=https://boojy.vercel.app
 
-This project reads its Supabase connection from a local **`.env.local`** file (already present in the repo — gitignored, so never commit it). It holds two values:
+# Image Storage (Optional / Cloudinary)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
 
-| Variable | Description |
+### 3. Run the Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Available Scripts
+
+| Command | Description |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Your project URL, e.g. `https://xxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your publishable (or legacy anon) key |
+| `npm run dev` | Starts the Next.js development server |
+| `npm run build` | Builds the production bundle |
+| `npm run start` | Starts the production server |
+| `npm run lint` | Runs ESLint checks |
+| `npm test` | Runs the test suite via Vitest (216 tests) |
 
-Both come from the Supabase dashboard → **Project Settings → API** (Project URL and Project API keys). Restart the dev server after changing the file. The same two variables must be set on any host you deploy to.
+---
 
-## Scripts
+## Database & Migrations
 
-| Command            | Description                      |
-| ------------------ | -------------------------------- |
-| `npm run dev`      | Development server               |
-| `npm run build`    | Production build                 |
-| `npm run start`    | Serve the production build       |
-| `npm run lint`     | Run ESLint                       |
-| `npm test`         | Run the unit tests (Vitest)      |
+Database schema and functions are version-controlled under `supabase/migrations/`.
 
-## Project structure
-
-Feature-driven layout (ADR-0009): each business capability is a self-contained
-`features/<feature>/` module owning its UI, server actions, business logic, and
-unit tests; `app/` holds thin route shells that compose features.
-
-```
-app/                          Thin route shells only — pages compose features
-├── page.tsx                  Storefront home (hero + featured catalog)
-├── admin/                    Role-gated dashboard
-│   ├── page.tsx              KPI overview
-│   ├── categories/  products/  orders/  customers/   Manager pages (+ detail)
-├── auth/                     Login, password reset, confirm
-├── checkout/  cart/  products/    Storefront pages
-features/
-├── catalog/                  Storefront browsing
-│   ├── components/           Hero, featured, grid, toolbar, product card,
-│   │                         product detail, add-to-cart
-│   └── lib/                  catalog.ts + catalog.test.ts (search/filter/sort)
-├── cart/                     Cart badge + view, Zustand store (lib/cart.ts)
-├── checkout/                 Checkout view + confirmation modal, lib/checkout.ts
-│                             (placeOrder seam) + actions.ts
-├── auth/                     Login / forgot / update-password forms, logout
-└── admin/                    The whole dashboard
-    ├── components/           Gate, nav, KPI cards + all five managers
-    ├── lib/                  admin.ts (KPIs) + categories/ products/ orders/
-    │                         customers/ (logic + tests per manager)
-    └── actions/              Server actions per manager (categories/products/orders)
-components/
-├── ui/                       shadcn/ui primitives
-└── storefront-header.tsx, storefront-drawer.tsx, site-footer.tsx,
-    theme-switcher.tsx        Shared storefront chrome (cross-feature, ADR-0009)
-lib/
-├── supabase/                 Browser / server / proxy Supabase clients
-├── testing/                  The single shared mock of the Supabase client
-└── utils.ts
-supabase/
-└── migrations/               Schema, seed, and function migrations (in order)
-proxy.ts                      Session-refresh proxy (Supabase auth cookies)
-```
-
-Each feature is self-contained: its components, Server Actions, business logic,
-and `.test.ts` files live together under `features/<feature>/`, and every feature
-module takes a Supabase client so tests run against the shared in-memory mock in
-`lib/testing/` — **no live Supabase project or env vars are needed to run the
-test suite**. Trust boundaries like stock validation and order atomicity live in
-Postgres functions, never in the client.
-
-## Database
-
-Apply `supabase/migrations/` **in filename order**. From the Supabase **SQL editor** (copy-paste each file and run), or with the [Supabase CLI](https://supabase.com/docs/guides/cli) on a fresh project:
+To apply migrations using the Supabase CLI:
 
 ```bash
 supabase db push
 ```
 
-| Migration | What it adds |
-| --- | --- |
-| `20260804000000_cube_store_schema.sql` | Schema (`categories`, `products`, `customers`, `orders`, `order_items` + enums), **RLS policies** (catalog world-readable; order tables INSERT-only for guests, Admins full access), the public `product-images` storage bucket (admin-write only) |
-| `20260804000001_seed_catalog.sql` | 4 Categories + 11 Products (including one out-of-stock and one inactive) |
-| `20260806000000_guest_checkout.sql` | `place_order` — atomic guest-checkout function (stock re-validation, customer upsert, price snapshots, per-day order numbers) |
-| `20260807000000_admin_order_transitions.sql` | `transition_order_status` — admin order lifecycle with atomic stock restore on cancel |
-| `20260807000001_seed_admin.sql` | Seeds the `admin@example.com` Admin account in Supabase Auth (pre-confirmed, `role: admin` claim, token columns set to `''`, plus its `auth.identities` row) |
-| `20260808000000_seed_admin_identity_fix.sql` | Backfill for projects seeded with the original admin seed: replaces NULL token columns with `''` and creates the `email` identity row — GoTrue returns an HTTP 500 `Database error querying schema` on login until both are fixed (supabase/auth#1940) |
-| `20260808000001_realtime_publication.sql` | Adds the catalog and order tables to the `supabase_realtime` publication — open storefront and admin tabs refresh via Realtime (ADR-0011) |
-| `20260808000002_admin_read_model.sql` | SQL admin read model: `order_summaries`, `order_details`, `customer_summaries` views (`security_invoker` + RLS) and the `get_admin_kpis` RPC (ADR-0012) |
+Key database functions and triggers:
+- `place_order`: Validates cart line items, customer details, and shipping rate calculations; creates the pending order without pre-deducting inventory.
+- `confirm_bachs_payment`: Validates charge amount and currency; atomically marks the order paid and deducts inventory inside a single transaction.
+- `transition_order_status`: Enforces legal order state transitions and restores stock on cancellation.
+- `handle_bachs_payment_failure`: Manages failed or expired payment sessions safely without phantom inventory changes.
 
-After applying the first two, run `supabase/verify-ticket-01.sql` in the SQL editor — it prints a PASS/FAIL report covering schema, RLS behaviour, storage, and seed contents. After applying the read-model migration (`20260808000002_admin_read_model.sql`), run `supabase/verify-read-model.sql` — it verifies the admin views and KPI RPC structurally, behaviourally (against rolled-back scratch data), and against the anon/admin roles.
+---
 
-### Seeded Admin
+## Project Structure
 
-The latest migration (`20260807000001_seed_admin.sql`) creates the initial Admin account:
+Feature-driven layout where domain logic, server actions, components, and tests are grouped together:
 
-- **Email:** `admin@example.com`
-- **Password:** `admin123`
-
-It is pre-confirmed and idempotent (skipped if the email already exists). **Change the password after the first login** — e.g. from the Supabase dashboard (Authentication → Users) or a password-reset email.
-
-> **Existing projects:** if you applied `20260807000001_seed_admin.sql` before
-> `20260808000000_seed_admin_identity_fix.sql` existed, run the fix migration
-> in the SQL editor — otherwise login for the seeded account fails with an
-> HTTP 500 `Database error querying schema`: the user row has NULL token
-> columns GoTrue scans as strings, and the `auth.identities` row is missing.
-
-### Promoting another Admin
-
-Admins are identified by the `role: admin` claim in their Auth account's `app_metadata`. Promote a User once, from the SQL editor:
-
-```sql
-update auth.users
-set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'::jsonb
-where email = 'admin@example.com';
+```
+app/                      # Next.js App Router routes & API endpoints
+├── (storefront)/         # Customer-facing routes (catalog, bag, checkout, tracking)
+├── admin/                # Role-protected management dashboard
+└── api/                  # API routes (webhooks, payment handoff bridge)
+features/
+├── admin/                # Admin features (KPIs, order manager, catalog manager)
+├── cart/                 # Persistent shopping bag and reconciliation hooks
+├── catalog/              # Product browsing, filters, sorting, and detail views
+├── checkout/             # Checkout form, validation, and Bachs redirect logic
+├── shipping/             # Nigerian state/LGA calculations and pickup hubs
+└── tracking/             # Order status tracking and PDF receipt generation
+components/               # Shared UI elements and Boojy brand preloader
+lib/                      # Supabase clients, Bachs client, and utility helpers
+supabase/migrations/      # Versioned SQL migrations and RLS policies
 ```
 
-The User must **sign out and sign back in** for the claim to appear in their session.
-
-## Deployment
-
-The app is a standard Next.js + Supabase deployment (verified with a production build and smoke test):
-
-1. **Supabase** — apply the migrations and promote your admin account (above).
-2. **Host** — deploy to [Vercel](https://vercel.com) (or any Node host) with the build command `npm run build` and start command `npm run start`.
-3. **Environment variables** — set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` on the host.
-4. Sign in with your admin account and open `/admin` to manage the store.
+---
 
 ## Testing
+
+Run the Vitest test suite:
 
 ```bash
 npm test
 ```
 
-143 unit tests cover the feature seams: catalog queries and filters, the persisted cart (including reconciliation against the live catalog — prices/stock refresh and retired Products get flagged, ADR-0013), checkout atomicity and order-number sequencing, admin KPIs (RPC mapping), category/product CRUD (including the guarded delete and image validation), the order lifecycle (valid moves, rejected moves, **cancel restores stock exactly once**), customer aggregates (view mapping), CSV export, the Realtime refresh scheduler, plus the mocked Supabase client and the route-mode split. The SQL read model itself is verified separately by `supabase/verify-read-model.sql`.
+Unit tests cover:
+- Catalog filtering, sorting, and pagination.
+- Cart persistence and real-time inventory reconciliation.
+- Checkout validation and Bachs payment gateway redirection.
+- Webhook signature verification and atomic payment confirmation.
+- Admin order lifecycle transitions and automated stock restoration.
