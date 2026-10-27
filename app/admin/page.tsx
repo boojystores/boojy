@@ -23,13 +23,13 @@ export default async function AdminDashboardPage() {
     {
       label: "Total Sales",
       value: currency.format(kpis.totalSales),
-      subtitle: "Paid & completed orders",
+      subtitle: "Successfully paid orders",
       icon: Banknote,
     },
     {
       label: "Pending Orders",
       value: currency.format(kpis.pendingSales),
-      subtitle: `${kpis.pendingOrders.toLocaleString()} order${kpis.pendingOrders === 1 ? "" : "s"} awaiting payment`,
+      subtitle: `${kpis.pendingOrders.toLocaleString()} awaiting order${kpis.pendingOrders === 1 ? "" : "s"}`,
       icon: Clock3,
     },
     {

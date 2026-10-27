@@ -85,4 +85,41 @@ describe("admin KPIs (ticket 07)", () => {
 
     expect(await getAdminKpis(toClient(mock))).toEqual(EMPTY);
   });
+
+  it("authoritatively separates paid total sales from pending orders", async () => {
+    const mock = createMockSupabase({
+      orders: [
+        {
+          id: "o1",
+          order_number: "ORD-1",
+          total_amount: 15000,
+          status: "pending",
+          payment_status: "pending",
+        },
+        {
+          id: "o2",
+          order_number: "ORD-2",
+          total_amount: 30000,
+          status: "confirmed",
+          payment_status: "paid",
+        },
+        {
+          id: "o3",
+          order_number: "ORD-3",
+          total_amount: 5000,
+          status: "cancelled",
+          payment_status: "unpaid",
+        },
+      ],
+    });
+
+    const kpis = await getAdminKpis(toClient(mock));
+
+    // Total sales strictly only includes the paid order (30,000), not pending
+    expect(kpis.totalSales).toBe(30000);
+    // Pending sales includes the pending order price (15,000)
+    expect(kpis.pendingSales).toBe(15000);
+    expect(kpis.pendingOrders).toBe(1);
+    expect(kpis.totalOrders).toBe(2);
+  });
 });

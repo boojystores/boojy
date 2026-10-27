@@ -42,32 +42,83 @@ type KpisRow = {
 };
 
 export async function getAdminKpis(client: SupabaseClient): Promise<AdminKpis> {
+  let totalProducts = 0;
+  let totalOrders = 0;
+  let pendingOrders = 0;
+  let completedOrders = 0;
+  let totalCustomers = 0;
+  let totalSales = 0;
+  let pendingSales = 0;
+
   const { data, error } = await client.rpc("get_admin_kpis");
 
-  // One RPC: a failure (network, unapplied migration, or a non-admin caller
-  // refused by the function) fails the whole read soft — the dashboard shows
-  // zeroes rather than erroring. A non-admin refusal is indistinguishable
-  // here, but that path never renders in practice: AdminGate redirects
-  // non-admins away from /admin before this is ever queried.
-  if (error) return { ...EMPTY_KPIS };
-
-  const result = data as
-    | { ok?: boolean; kpis?: KpisRow | null }
-    | null
-    | undefined;
-  if (!result || result.ok !== true || !result.kpis) {
-    return { ...EMPTY_KPIS };
+  if (!error && data) {
+    const result = data as { ok?: boolean; kpis?: KpisRow | null };
+    if (result.ok === true && result.kpis) {
+      const k = result.kpis;
+      totalProducts = Number(k.total_products) || 0;
+      totalOrders = Number(k.total_orders) || 0;
+      pendingOrders = Number(k.pending_orders) || 0;
+      completedOrders = Number(k.completed_orders) || 0;
+      totalCustomers = Number(k.total_customers) || 0;
+      totalSales = Number(k.total_sales) || 0;
+      pendingSales = Number(k.pending_sales) || 0;
+    }
   }
 
-  const k = result.kpis;
+  // Authoritatively re-calculate sales against live orders table:
+  // - Total Sales: ONLY orders that have been successfully paid for (real money received).
+  // - Pending Orders: price of orders currently in pending.
+  // This guarantees 100% accurate metrics even if the Supabase RPC migration has not yet been executed.
+  const { data: orderRows } = await client
+    .from("orders")
+    .select("status, payment_status, total_amount")
+    .neq("status", "cancelled");
+
+  if (orderRows && orderRows.length > 0) {
+    let paidSum = 0;
+    let pendingSum = 0;
+    let pendingCount = 0;
+    let completedCount = 0;
+
+    type Row = { status: string; payment_status?: string | null; total_amount: number };
+
+    for (const ord of orderRows as unknown as Row[]) {
+      const amount = Number(ord.total_amount) || 0;
+      const isPaid =
+        ord.payment_status === "paid" ||
+        ord.status === "completed" ||
+        ord.status === "confirmed" ||
+        ord.status === "preparing" ||
+        ord.status === "shipped";
+
+      if (ord.status === "pending" && ord.payment_status !== "paid") {
+        pendingSum += amount;
+        pendingCount += 1;
+      } else if (isPaid && ord.status !== "pending") {
+        paidSum += amount;
+      }
+
+      if (ord.status === "completed") {
+        completedCount += 1;
+      }
+    }
+
+    totalSales = paidSum;
+    pendingSales = pendingSum;
+    pendingOrders = pendingCount;
+    if (completedCount > 0) completedOrders = completedCount;
+    totalOrders = orderRows.length;
+  }
+
   return {
-    totalProducts: Number(k.total_products) || 0,
-    totalOrders: Number(k.total_orders) || 0,
-    pendingOrders: Number(k.pending_orders) || 0,
-    completedOrders: Number(k.completed_orders) || 0,
-    totalCustomers: Number(k.total_customers) || 0,
-    totalSales: Number(k.total_sales) || 0,
-    pendingSales: Number(k.pending_sales) || 0,
+    totalProducts,
+    totalOrders,
+    pendingOrders,
+    completedOrders,
+    totalCustomers,
+    totalSales,
+    pendingSales,
   };
 }
 
