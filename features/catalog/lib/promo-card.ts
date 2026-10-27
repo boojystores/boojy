@@ -13,7 +13,7 @@ export interface PromoCardConfig {
 export const DEFAULT_PROMO_CONFIG: PromoCardConfig = {
   enabled: true,
   title: "BLACK FRIDAY",
-  badge: "LIMITED EVENT",
+  badge: "",
   description: "Up to 50% off select streetwear, joggers, and signature pieces.",
   buttonText: "ENTER NOW",
   buttonLink: "/products",

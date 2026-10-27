@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { PromoCardConfig } from "@/features/catalog/lib/promo-card";
 import { cn } from "@/lib/utils";
 
@@ -17,43 +17,34 @@ export function PromoAdCard({
   return (
     <div
       className={cn(
-        "group relative col-span-2 sm:col-span-1 w-full flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-black text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl",
+        "group relative col-span-2 sm:col-span-1 w-full flex flex-col justify-end overflow-hidden rounded-xl border border-border bg-card text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl",
         "min-h-[250px] sm:min-h-[380px] p-5 sm:p-6",
         className,
       )}
     >
-      {/* Background Image / Texture with dark gradient overlay */}
+      {/* Background Image — full visibility, no darkening overlay covering the photo */}
       {config.imageUrl ? (
         <div className="absolute inset-0 -z-20 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={config.imageUrl}
             alt={config.title}
-            className="h-full w-full object-cover opacity-40 transition-transform duration-700 ease-out group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           />
         </div>
       ) : null}
 
-      {/* Luxury atmospheric gradients */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black via-black/75 to-transparent" />
-      <div className="absolute -right-12 -top-12 -z-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl transition-opacity group-hover:opacity-100 opacity-60" />
+      {/* Bottom blur overlay so text at the bottom is clear and readable without blacking out the rest of the image */}
+      <div className="absolute inset-x-0 bottom-0 -z-10 h-3/5 bg-gradient-to-t from-black/85 via-black/45 to-transparent backdrop-blur-sm" />
 
-      {/* Top: Badge / Tag */}
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-none border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white backdrop-blur-md">
-          <Sparkles className="h-3 w-3 text-amber-400" />
-          {config.badge || "FEATURED EVENT"}
-        </span>
-      </div>
-
-      {/* Center & Bottom Content */}
-      <div className="mt-auto space-y-3 pt-6">
-        <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold uppercase leading-tight tracking-wide text-white drop-shadow-sm">
+      {/* Bottom Content */}
+      <div className="space-y-3">
+        <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold uppercase leading-tight tracking-wide text-white drop-shadow-md">
           {config.title}
         </h3>
 
         {config.description ? (
-          <p className="line-clamp-3 text-xs sm:text-sm text-neutral-300 leading-relaxed font-normal">
+          <p className="line-clamp-3 text-xs sm:text-sm text-neutral-200 leading-relaxed font-medium drop-shadow-sm">
             {config.description}
           </p>
         ) : null}
