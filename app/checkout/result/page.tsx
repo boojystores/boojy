@@ -3,10 +3,14 @@ import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { PaymentResultView } from "@/features/checkout/components/payment-result-view";
 
-export const metadata: Metadata = {
-  title: "Payment Status — Boojy",
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Payment Status",
   description: "Verification of your Boojy order payment.",
-};
+  path: "/checkout/result",
+  noIndex: true,
+});
 
 export default async function CheckoutResultPage({
   searchParams,

@@ -82,7 +82,7 @@ export function SiteFooter() {
               </a>
               <span className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Lagos, Nigeria
+                Owerri, Imo State, Nigeria
               </span>
             </div>
           </div>

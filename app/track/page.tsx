@@ -3,14 +3,26 @@ import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { TrackOrderForm } from "@/features/tracking/components/track-order-form";
 
-export const metadata: Metadata = {
-  title: "Track Order — Boojy",
-  description: "Track your Boojy order status by order number.",
-};
+import { buildPageMetadata, getBreadcrumbJsonLd } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Track Order",
+  description: "Track your Boojy order status and real-time shipment updates using your order number.",
+  path: "/track",
+});
 
 export default function TrackOrderPage() {
+  const breadcrumbsSchema = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Track Order", path: "/track" },
+  ]);
+
   return (
     <div className="flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbsSchema) }}
+      />
       <StorefrontHeader />
       <main className="flex-1">
         <div className="site-container py-10">

@@ -5,10 +5,14 @@ import { CheckoutView } from "@/features/checkout/components/checkout-view";
 import { getPaymentMethodsConfig } from "@/features/admin/actions/payments";
 import { getStates, getLgas, getDeliveryZones, getPickupLocations } from "@/features/shipping/actions";
 
-export const metadata: Metadata = {
-  title: "Checkout — Boojy",
-  description: "Place your Boojy order as a guest — no account needed.",
-};
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Checkout",
+  description: "Secure guest checkout for your Boojy order.",
+  path: "/checkout",
+  noIndex: true,
+});
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

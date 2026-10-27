@@ -9,6 +9,7 @@ import {
 } from "@/features/catalog/lib/catalog";
 import { ProductCard } from "@/features/catalog/components/product-card";
 import { ProductView } from "@/features/catalog/components/product-view";
+import { getProductJsonLd, getBreadcrumbJsonLd } from "@/lib/seo";
 
 export async function ProductDetail({
   params,
@@ -34,8 +35,33 @@ export async function ProductDetail({
     getFeaturedCategories(supabase),
   ]);
 
+  const categoryName = categories.find((c) => c.id === product.category_id)?.name;
+  const productSchema = getProductJsonLd({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    stockQuantity: product.stock_quantity,
+    images: product.images && product.images.length > 0 ? product.images : [product.image_url],
+    categoryName,
+  });
+
+  const breadcrumbSchema = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Products", path: "/products" },
+    { name: product.name, path: `/products/${product.id}` },
+  ]);
+
   return (
     <div className="w-full">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       {/* Main product visual and purchase experience matching reference style */}
       <ProductView product={product} categories={categories} />
 

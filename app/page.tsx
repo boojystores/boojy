@@ -7,6 +7,12 @@ import {
   FeaturedCatalogSkeleton,
 } from "@/features/catalog/components/featured-catalog";
 
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata = buildPageMetadata({
+  path: "/",
+});
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 

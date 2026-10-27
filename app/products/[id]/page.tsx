@@ -6,6 +6,8 @@ import { ProductDetail, ProductDetailSkeleton } from "@/features/catalog/compone
 import { createClient } from "@/lib/supabase/server";
 import { getProductById } from "@/features/catalog/lib/catalog";
 
+import { buildPageMetadata } from "@/lib/seo";
+
 // Live product data (stock, price) + cookies in generateMetadata mean this
 // route must render per request — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -20,15 +22,26 @@ export async function generateMetadata({
   const product = await getProductById(supabase, id);
 
   if (!product) {
-    return { title: "Product not found — Boojy" };
+    return buildPageMetadata({
+      title: "Product Not Found",
+      description: "The requested product is not available in the Boojy catalog.",
+      path: `/products/${id}`,
+      noIndex: true,
+    });
   }
 
-  return {
-    title: `${product.name} — Boojy`,
+  const primaryImage = product.image_url || "/opengraph-image.png";
+
+  return buildPageMetadata({
+    title: product.name,
     description:
-      product.description ??
-      `Shop the ${product.name} at Boojy.`,
-  };
+      product.description ||
+      `Shop ${product.name} at Boojy. Curated Nigerian streetwear and luxury apparel.`,
+    path: `/products/${id}`,
+    image: primaryImage,
+    imageAlt: product.name,
+    type: "article",
+  });
 }
 
 export default function ProductPage({

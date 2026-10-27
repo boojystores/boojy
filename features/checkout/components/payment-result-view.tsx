@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   BadgeCheck,
   XCircle,
-  Clock,
   ArrowRight,
   RotateCcw,
   ShoppingBag,
@@ -84,6 +83,12 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
     };
   }, [fetchStatus, pollCount, isCancelled]);
 
+  useEffect(() => {
+    if (orderData && (orderData.paymentStatus === "paid" || orderData.status === "confirmed")) {
+      useCartStore.getState().clearCart();
+    }
+  }, [orderData]);
+
   async function handleDownloadReceipt() {
     if (!orderData?.orderNumber) return;
     setDownloading(true);
@@ -140,12 +145,6 @@ export function PaymentResultView({ orderId, isCancelled }: PaymentResultViewPro
   const isFailed = isCancelled || orderData.paymentStatus === "failed" || orderData.status === "cancelled";
   const isPending = !isPaid && !isFailed;
   const payHref = `/api/checkout/pay?order_id=${encodeURIComponent(orderId)}`;
-
-  useEffect(() => {
-    if (isPaid) {
-      useCartStore.getState().clearCart();
-    }
-  }, [isPaid]);
 
   return (
     <div className="site-container py-12 md:py-20">

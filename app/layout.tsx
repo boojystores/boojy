@@ -4,15 +4,71 @@ import localFont from "next/font/local";
 import { RouteAwareThemeProvider } from "@/components/route-aware-theme-provider";
 import "./globals.css";
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+import { getSiteUrl, SEO_CONFIG, getStoreJsonLd, getWebSiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Boojy",
-  description:
-    "Curated streetwear, premium apparel, bespoke fits, and luxury essentials.",
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: SEO_CONFIG.defaultTitle,
+    template: SEO_CONFIG.titleTemplate,
+  },
+  description: SEO_CONFIG.description,
+  keywords: [...SEO_CONFIG.keywords],
+  authors: [{ name: "Boojy" }],
+  creator: "Boojy",
+  publisher: "Boojy",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  alternates: {
+    canonical: "./",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: SEO_CONFIG.locale,
+    url: getSiteUrl(),
+    siteName: SEO_CONFIG.siteName,
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.description,
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 600,
+        alt: `${SEO_CONFIG.siteName} — ${SEO_CONFIG.defaultTitle}`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.description,
+    images: ["/twitter-image.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 // Street Drips by Blankids brand typeface with regular and extrude weights
@@ -99,8 +155,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const storeSchema = getStoreJsonLd();
+  const websiteSchema = getWebSiteJsonLd();
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+      </head>
       <body
         className={`${streetDrips.variable} ${streetDripsExtrude.variable} ${monaSans.variable} ${geistSans.variable} ${spaceGrotesk.variable} font-sans antialiased`}
       >

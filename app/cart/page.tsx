@@ -3,10 +3,14 @@ import { SiteFooter } from "@/components/site-footer";
 import { StorefrontHeader } from "@/components/storefront-header";
 import { CartView } from "@/features/cart/components/cart-view";
 
-export const metadata: Metadata = {
-  title: "Cart — Boojy",
-  description: "Review your Boojy cart before checkout.",
-};
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Shopping Bag",
+  description: "Review your Boojy shopping bag items and proceed to secure checkout.",
+  path: "/cart",
+  noIndex: true,
+});
 
 export default function CartPage() {
   return (
