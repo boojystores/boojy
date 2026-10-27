@@ -316,17 +316,20 @@ export async function submitCheckout(input: {
     if (itemsWithSize.length > 0) {
       const { data: dbItems } = await serviceClient
         .from("order_items")
-        .select("id, product_id, product_name")
+        .select("id, product_id, product_name, size")
         .eq("order_id", orderResult.orderId);
 
       if (dbItems && dbItems.length > 0) {
         for (const itemInput of itemsWithSize) {
-          const matchingDbItem = dbItems.find((d) => d.product_id === itemInput.productId);
-          if (matchingDbItem && !matchingDbItem.product_name.includes(`(${itemInput.selectedSize})`)) {
+          const matchingDbItem = dbItems.find(
+            (d) => d.product_id === itemInput.productId && (!d.size || d.size === itemInput.selectedSize),
+          );
+          if (matchingDbItem) {
             const baseName = matchingDbItem.product_name.replace(/\s*\(Size:\s*[^)]+\)/i, "").trim();
             await serviceClient
               .from("order_items")
               .update({
+                size: itemInput.selectedSize,
                 product_name: `${baseName} (Size: ${itemInput.selectedSize})`,
               })
               .eq("id", matchingDbItem.id);

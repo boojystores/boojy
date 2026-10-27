@@ -35,8 +35,15 @@ export function ProductView({
   const [justAdded, setJustAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const getSizeStock = (size: string): number => {
+    if (product.variants && product.variants.length > 0) {
+      const v = product.variants.find((variant) => variant.size.toLowerCase() === size.toLowerCase());
+      return v ? v.stock_quantity : 0;
+    }
+    return product.stock_quantity;
+  };
+
   const outOfStock = product.stock_quantity === 0;
-  const maxQuantity = Math.max(1, product.stock_quantity);
 
   // Available clothing sizes support
   const availableSizes =
@@ -45,10 +52,16 @@ export function ProductView({
       : extractProductSizes(product);
 
   const [selectedSize, setSelectedSize] = useState<string>(() => {
-    if (availableSizes.length === 1) return availableSizes[0];
+    if (availableSizes.length === 1 && getSizeStock(availableSizes[0]) > 0) {
+      return availableSizes[0];
+    }
     return "";
   });
   const [sizeError, setSizeError] = useState(false);
+
+  const selectedStock = selectedSize ? getSizeStock(selectedSize) : product.stock_quantity;
+  const isSelectedOutOfStock = selectedSize ? selectedStock <= 0 : outOfStock;
+  const maxQuantity = Math.max(1, selectedStock);
 
   // Gallery images support (any number of uploaded product pictures)
   const galleryImages =
@@ -68,6 +81,10 @@ export function ProductView({
   function handleAddToCart() {
     if (outOfStock) return;
     if (availableSizes.length > 0 && !selectedSize) {
+      setSizeError(true);
+      return;
+    }
+    if (selectedSize && getSizeStock(selectedSize) <= 0) {
       setSizeError(true);
       return;
     }
@@ -223,26 +240,49 @@ export function ProductView({
                 <div className="flex flex-wrap gap-2">
                   {availableSizes.map((size) => {
                     const isSelected = selectedSize === size;
+                    const stock = getSizeStock(size);
+                    const isUnavailable = stock <= 0;
+
                     return (
                       <button
                         key={size}
                         type="button"
                         onClick={() => {
+                          if (isUnavailable) return;
                           setSelectedSize(size);
                           setSizeError(false);
                         }}
-                        aria-label={`Select size ${size}`}
+                        aria-label={isUnavailable ? `Size ${size}, unavailable` : `Select size ${size}`}
                         aria-pressed={isSelected}
-                        disabled={outOfStock}
+                        disabled={isUnavailable}
+                        aria-disabled={isUnavailable}
                         className={cn(
-                          "min-w-11 h-11 px-3.5 flex items-center justify-center text-xs font-semibold uppercase tracking-wider transition-all rounded-none border font-sans",
-                          isSelected
+                          "relative min-w-11 h-11 px-3.5 flex items-center justify-center text-xs font-semibold uppercase tracking-wider transition-all rounded-none border font-sans select-none overflow-hidden",
+                          isSelected && !isUnavailable
                             ? "border-foreground bg-foreground text-background font-bold shadow-xs scale-[1.02]"
-                            : "border-border bg-background text-foreground hover:border-foreground/60 hover:bg-muted/30",
-                          outOfStock && "opacity-50 cursor-not-allowed",
+                            : isUnavailable
+                              ? "border-border/60 bg-muted/20 text-muted-foreground/60 cursor-not-allowed opacity-60"
+                              : "border-border bg-background text-foreground hover:border-foreground/60 hover:bg-muted/30 cursor-pointer",
                         )}
                       >
-                        {size}
+                        <span className="relative z-10">{size}</span>
+                        {isUnavailable && (
+                          <svg
+                            className="absolute inset-0 h-full w-full pointer-events-none text-muted-foreground/50"
+                            preserveAspectRatio="none"
+                            viewBox="0 0 100 100"
+                            aria-hidden="true"
+                          >
+                            <line
+                              x1="0"
+                              y1="100"
+                              x2="100"
+                              y2="0"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        )}
                       </button>
                     );
                   })}
@@ -259,7 +299,7 @@ export function ProductView({
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  disabled={quantity <= 1 || outOfStock}
+                  disabled={quantity <= 1 || outOfStock || isSelectedOutOfStock}
                   aria-label="Decrease quantity"
                   className="flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
                 >
@@ -271,7 +311,7 @@ export function ProductView({
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
-                  disabled={quantity >= maxQuantity || outOfStock}
+                  disabled={quantity >= maxQuantity || outOfStock || isSelectedOutOfStock}
                   aria-label="Increase quantity"
                   className="flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
                 >
@@ -284,11 +324,11 @@ export function ProductView({
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={outOfStock}
+              disabled={outOfStock || isSelectedOutOfStock}
               className={cn(
                 "w-full h-12 flex items-center justify-center gap-2",
                 "bg-black hover:bg-neutral-900 text-white font-display text-sm sm:text-base font-bold uppercase tracking-wider transition-colors rounded-none shadow-sm border border-black",
-                outOfStock && "opacity-50 cursor-not-allowed",
+                (outOfStock || isSelectedOutOfStock) && "opacity-50 cursor-not-allowed",
                 justAdded && "bg-emerald-600 hover:bg-emerald-600 border-emerald-600",
               )}
             >
@@ -297,7 +337,7 @@ export function ProductView({
                   <Check className="h-4 w-4" />
                   <span>ADDED TO BAG</span>
                 </>
-              ) : outOfStock ? (
+              ) : outOfStock || isSelectedOutOfStock ? (
                 "OUT OF STOCK"
               ) : (
                 <>

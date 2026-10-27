@@ -8,6 +8,18 @@ export type Category = {
   slug: string;
 };
 
+export type ProductVariant = {
+  id: string;
+  product_id: string;
+  size: string;
+  color?: string | null;
+  sku?: string | null;
+  stock_quantity: number;
+  status: "active" | "archived";
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -20,6 +32,7 @@ export type Product = {
   category_id: string | null;
   category_ids?: string[];
   sizes?: string[];
+  variants?: ProductVariant[];
 };
 
 export const STANDARD_CLOTHING_SIZES = [
@@ -291,13 +304,46 @@ export async function getAllActiveProducts(client: SupabaseClient): Promise<Prod
     .order("stock_quantity", { ascending: false });
 
   if (error) return [];
-  return ((data ?? []) as Product[]).map((p) => ({
-    ...p,
-    description: p.description ? cleanProductDescription(p.description) : null,
-    category_ids: extractProductCategories(p),
-    images: extractProductImages(p),
-    sizes: extractProductSizes(p),
-  }));
+
+  const variantsByProduct = new Map<string, ProductVariant[]>();
+  try {
+    const { data: vData } = await client
+      .from("product_variants")
+      .select("id, product_id, size, color, sku, stock_quantity, status")
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+    if (vData && Array.isArray(vData)) {
+      for (const v of vData as ProductVariant[]) {
+        const list = variantsByProduct.get(v.product_id) || [];
+        list.push(v);
+        variantsByProduct.set(v.product_id, list);
+      }
+    }
+  } catch {
+    // If product_variants table is not queried or fails
+  }
+
+  return ((data ?? []) as Product[]).map((p) => {
+    const pVariants = variantsByProduct.get(p.id) || [];
+    const sizes =
+      pVariants.length > 0
+        ? pVariants.map((v) => v.size)
+        : extractProductSizes(p);
+    const totalStock =
+      pVariants.length > 0
+        ? pVariants.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0)
+        : p.stock_quantity;
+
+    return {
+      ...p,
+      stock_quantity: totalStock,
+      description: p.description ? cleanProductDescription(p.description) : null,
+      category_ids: extractProductCategories(p),
+      images: extractProductImages(p),
+      sizes,
+      variants: pVariants.length > 0 ? pVariants : undefined,
+    };
+  });
 }
 
 /**
@@ -452,12 +498,40 @@ export async function getProductById(
 
   if (error || !data) return null;
   const p = data as Product;
+
+  let variants: ProductVariant[] = [];
+  try {
+    const { data: vData } = await client
+      .from("product_variants")
+      .select("id, product_id, size, color, sku, stock_quantity, status")
+      .eq("product_id", id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+    if (vData && Array.isArray(vData) && vData.length > 0) {
+      variants = vData as ProductVariant[];
+    }
+  } catch {
+    // If product_variants table is not queried or fails
+  }
+
+  const sizes =
+    variants.length > 0
+      ? variants.map((v) => v.size)
+      : extractProductSizes(p);
+
+  const totalStock =
+    variants.length > 0
+      ? variants.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0)
+      : p.stock_quantity;
+
   return {
     ...p,
+    stock_quantity: totalStock,
     description: p.description ? cleanProductDescription(p.description) : null,
     category_ids: extractProductCategories(p),
     images: extractProductImages(p),
-    sizes: extractProductSizes(p),
+    sizes,
+    variants: variants.length > 0 ? variants : undefined,
   };
 }
 

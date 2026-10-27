@@ -7,6 +7,7 @@ import {
   PRODUCT_COLUMNS,
   type Product,
   type ProductStatus,
+  type ProductVariant,
 } from "@/features/catalog/lib/catalog";
 
 /**
@@ -17,6 +18,15 @@ import {
  * lives in `./images.ts` (ADR-0008) and this file stays client-safe.
  */
 
+export type VariantInput = {
+  id?: string;
+  size: string;
+  color?: string | null;
+  sku?: string | null;
+  stock_quantity: number;
+  status?: "active" | "archived";
+};
+
 export type ProductInput = {
   name: string;
   description: string | null;
@@ -26,6 +36,7 @@ export type ProductInput = {
   category_id: string | null;
   category_ids?: string[];
   sizes?: string[];
+  variants?: VariantInput[];
   image_url: string;
   images?: string[];
 };
@@ -70,10 +81,33 @@ function friendlyError(
  * Every Product (active and inactive) with its Category names, filtered by
  * name search and/or Category, newest first. Used by the admin list.
  */
+export async function getProductVariants(
+  client: SupabaseClient,
+  productId: string,
+): Promise<ProductVariant[]> {
+  try {
+    const { data, error } = await client
+      .from("product_variants")
+      .select("id, product_id, size, color, sku, stock_quantity, status, created_at, updated_at")
+      .eq("product_id", productId)
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+
+    if (error || !data) return [];
+    return data as ProductVariant[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every Product (active and inactive) with its Category names, filtered by
+ * name search and/or Category, newest first. Used by the admin list.
+ */
 export async function listAdminProducts(
   client: SupabaseClient,
   params: { q?: string; categoryId?: string } = {},
-): Promise<(Product & { category_name: string | null; category_names?: string[] })[]> {
+): Promise<(Product & { category_name: string | null; category_names?: string[]; variants?: ProductVariant[] })[]> {
   let query = client
     .from("products")
     .select(PRODUCT_COLUMNS)
@@ -97,13 +131,44 @@ export async function listAdminProducts(
       c.name,
     ]),
   );
+
+  const variantsByProduct = new Map<string, ProductVariant[]>();
+  try {
+    const { data: vData } = await client
+      .from("product_variants")
+      .select("id, product_id, size, color, sku, stock_quantity, status, created_at, updated_at")
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+    if (vData && Array.isArray(vData)) {
+      for (const v of vData as ProductVariant[]) {
+        const list = variantsByProduct.get(v.product_id) || [];
+        list.push(v);
+        variantsByProduct.set(v.product_id, list);
+      }
+    }
+  } catch {
+    // If table not present
+  }
+
   return ((products.data ?? []) as Product[]).map((product) => {
     const categoryIds = extractProductCategories(product);
     const categoryNames = categoryIds
       .map((id) => names.get(id))
       .filter((n): n is string => Boolean(n));
+
+    const pVariants = variantsByProduct.get(product.id) || [];
+    const sizes =
+      pVariants.length > 0
+        ? pVariants.map((v) => v.size)
+        : extractProductSizes(product);
+    const totalStock =
+      pVariants.length > 0
+        ? pVariants.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0)
+        : product.stock_quantity;
+
     return {
       ...product,
+      stock_quantity: totalStock,
       description: cleanProductDescription(product.description),
       category_id: product.category_id ?? (categoryIds[0] ?? null),
       category_ids: categoryIds,
@@ -115,7 +180,8 @@ export async function listAdminProducts(
             ? (names.get(product.category_id) ?? null)
             : null,
       images: extractProductImages(product),
-      sizes: extractProductSizes(product),
+      sizes,
+      variants: pVariants.length > 0 ? pVariants : undefined,
     };
   });
 }
@@ -125,9 +191,20 @@ export async function createProduct(
   input: ProductInput,
 ): Promise<ProductMutationResult> {
   const payload = { ...input };
+  const variants = input.variants;
   delete payload.category_ids;
   delete payload.images;
   delete payload.sizes;
+  delete payload.variants;
+
+  // Total stock is automatically the sum of all size variants if variants exist
+  if (variants && variants.length > 0) {
+    payload.stock_quantity = variants.reduce(
+      (sum, v) => sum + Math.max(0, Math.floor(Number(v.stock_quantity) || 0)),
+      0,
+    );
+  }
+
   const { data, error } = await client
     .from("products")
     .insert(payload)
@@ -138,14 +215,51 @@ export async function createProduct(
     return { ok: false, message: friendlyError(error, "Could not create the product.") };
   }
   const p = data as Product;
+
+  let createdVariants: ProductVariant[] = [];
+  if (variants && variants.length > 0) {
+    const variantRows = variants.map((v) => ({
+      product_id: p.id,
+      size: v.size.trim(),
+      color: v.color?.trim() || null,
+      sku: v.sku?.trim() || null,
+      stock_quantity: Math.max(0, Math.floor(Number(v.stock_quantity) || 0)),
+      status: v.status || "active",
+    }));
+
+    try {
+      const { data: vData } = await client
+        .from("product_variants")
+        .insert(variantRows)
+        .select("id, product_id, size, color, sku, stock_quantity, status, created_at, updated_at");
+      if (vData && Array.isArray(vData)) {
+        createdVariants = vData as ProductVariant[];
+      }
+    } catch {
+      // Ignore if table not present in mock
+    }
+  }
+
+  const sizes =
+    createdVariants.length > 0
+      ? createdVariants.map((v) => v.size)
+      : (input.sizes ?? extractProductSizes(p));
+
+  const totalStock =
+    createdVariants.length > 0
+      ? createdVariants.reduce((sum, v) => sum + v.stock_quantity, 0)
+      : p.stock_quantity;
+
   return {
     ok: true,
     product: {
       ...p,
+      stock_quantity: totalStock,
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
       images: extractProductImages(p),
-      sizes: extractProductSizes(p),
+      sizes,
+      variants: createdVariants.length > 0 ? createdVariants : undefined,
     },
   };
 }
@@ -165,9 +279,19 @@ export async function updateProduct(
   }
 
   const payload = { ...input };
+  const variants = input.variants;
   delete payload.category_ids;
   delete payload.images;
   delete payload.sizes;
+  delete payload.variants;
+
+  if (variants && variants.length > 0) {
+    payload.stock_quantity = variants.reduce(
+      (sum, v) => sum + Math.max(0, Math.floor(Number(v.stock_quantity) || 0)),
+      0,
+    );
+  }
+
   const { data, error } = await client
     .from("products")
     .update(payload)
@@ -179,14 +303,105 @@ export async function updateProduct(
     return { ok: false, message: friendlyError(error, "Could not save the product.") };
   }
   const p = data as Product;
+
+  let currentVariants: ProductVariant[] = [];
+  if (variants !== undefined) {
+    try {
+      const { data: existingDbVariants } = await client
+        .from("product_variants")
+        .select("id, product_id, size, color, sku, stock_quantity, status")
+        .eq("product_id", id);
+
+      const existingList = (existingDbVariants ?? []) as ProductVariant[];
+      const activeSizesInForm = new Set(variants.map((v) => v.size.toLowerCase().trim()));
+
+      // 1. Upsert variants from form
+      for (const v of variants) {
+        const cleanSize = v.size.trim();
+        const existing = existingList.find(
+          (ev) => ev.size.toLowerCase().trim() === cleanSize.toLowerCase(),
+        );
+
+        const qty = Math.max(0, Math.floor(Number(v.stock_quantity) || 0));
+
+        if (existing) {
+          await client
+            .from("product_variants")
+            .update({
+              stock_quantity: qty,
+              status: "active",
+              color: v.color?.trim() || null,
+              sku: v.sku?.trim() || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existing.id);
+        } else {
+          await client.from("product_variants").insert({
+            product_id: id,
+            size: cleanSize,
+            color: v.color?.trim() || null,
+            sku: v.sku?.trim() || null,
+            stock_quantity: qty,
+            status: "active",
+          });
+        }
+      }
+
+      // 2. Safe removal/archival of sizes no longer in form:
+      // Preserves historical order details: if variant was ordered, archive rather than hard-delete
+      const removedVariants = existingList.filter(
+        (ev) => !activeSizesInForm.has(ev.size.toLowerCase().trim()),
+      );
+
+      for (const removed of removedVariants) {
+        const { count } = await client
+          .from("order_items")
+          .select("id", { count: "exact", head: true })
+          .eq("variant_id", removed.id);
+
+        if (count && count > 0) {
+          await client
+            .from("product_variants")
+            .update({ status: "archived", stock_quantity: 0 })
+            .eq("id", removed.id);
+        } else {
+          await client.from("product_variants").delete().eq("id", removed.id);
+        }
+      }
+
+      const { data: refreshed } = await client
+        .from("product_variants")
+        .select("id, product_id, size, color, sku, stock_quantity, status, created_at, updated_at")
+        .eq("product_id", id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true });
+
+      if (refreshed) currentVariants = refreshed as ProductVariant[];
+    } catch {
+      // In case table not present in mock
+    }
+  }
+
+  const sizes =
+    currentVariants.length > 0
+      ? currentVariants.map((v) => v.size)
+      : (input.sizes ?? extractProductSizes(p));
+
+  const totalStock =
+    currentVariants.length > 0
+      ? currentVariants.reduce((sum, v) => sum + v.stock_quantity, 0)
+      : p.stock_quantity;
+
   return {
     ok: true,
     product: {
       ...p,
+      stock_quantity: totalStock,
       description: cleanProductDescription(p.description),
       category_ids: extractProductCategories(p),
       images: extractProductImages(p),
-      sizes: extractProductSizes(p),
+      sizes,
+      variants: currentVariants.length > 0 ? currentVariants : undefined,
     },
   };
 }

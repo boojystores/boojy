@@ -14,6 +14,7 @@ import {
 } from "@/features/admin/lib/products/products";
 import {
   encodeDescriptionCategories,
+  encodeProductMetadata,
   type ProductStatus,
 } from "@/features/catalog/lib/catalog";
 
@@ -44,7 +45,7 @@ function parseProductForm(
   const priceRaw = String(formData.get("price") ?? "").trim();
   const stockRaw = String(formData.get("stock_quantity") ?? "").trim();
   const price = Number(priceRaw);
-  const stock_quantity = Number(stockRaw);
+  let stock_quantity = Number(stockRaw);
   const status = String(formData.get("status") ?? "active");
 
   const rawCategoryIds = formData.getAll("category_ids").map(String);
@@ -60,7 +61,6 @@ function parseProductForm(
     category_ids.unshift(singleCategoryRaw);
   }
   const category_id = category_ids[0] ?? null;
-  const encodedDescription = encodeDescriptionCategories(description, category_ids);
 
   const rawSizes = formData.getAll("sizes").map(String);
   let sizes: string[] = [];
@@ -82,6 +82,56 @@ function parseProductForm(
     }
   }
 
+  // Parse size-level variants with individual stock quantities
+  const rawVariants = formData.get("variants");
+  let variants: import("@/features/admin/lib/products/products").VariantInput[] | undefined = undefined;
+  if (typeof rawVariants === "string" && rawVariants.trim()) {
+    try {
+      const parsed = JSON.parse(rawVariants);
+      if (Array.isArray(parsed)) {
+        variants = parsed
+          .filter((item) => item && typeof item.size === "string" && item.size.trim())
+          .map((item) => ({
+            id: item.id ? String(item.id) : undefined,
+            size: String(item.size).trim(),
+            color: item.color ? String(item.color).trim() : null,
+            sku: item.sku ? String(item.sku).trim() : null,
+            stock_quantity: Math.max(0, Math.floor(Number(item.stock_quantity) || 0)),
+            status: item.status === "archived" ? ("archived" as const) : ("active" as const),
+          }));
+      }
+    } catch {
+      // ignore JSON parse error
+    }
+  }
+
+  if (variants && variants.length > 0) {
+    // Validate each variant
+    const seenVariantKeys = new Set<string>();
+    for (const v of variants) {
+      if (!v.size) {
+        return { error: "Each variant must have a valid size label." };
+      }
+      if (!Number.isInteger(v.stock_quantity) || v.stock_quantity < 0) {
+        return { error: `Stock for size ${v.size} must be a non-negative whole number.` };
+      }
+      const key = `${v.size.toLowerCase()}::${(v.color || "").toLowerCase()}`;
+      if (seenVariantKeys.has(key)) {
+        return { error: `Duplicate size variant detected: ${v.size}. Each size must be unique.` };
+      }
+      seenVariantKeys.add(key);
+    }
+
+    // Automatically calculate product total stock as sum of all variant quantities
+    stock_quantity = variants.reduce((sum, v) => sum + v.stock_quantity, 0);
+    sizes = Array.from(new Set(variants.map((v) => v.size)));
+  }
+
+  const encodedDescription = encodeProductMetadata(description, {
+    categoryIds: category_ids,
+    sizes,
+  });
+
   const existingImages = formData
     .getAll("existing_images")
     .map(String)
@@ -102,15 +152,13 @@ function parseProductForm(
   }
 
   if (!name) return { error: "Product name is required." };
-  // Reject blank fields explicitly — Number("") is 0, which would silently
-  // create a $0 / zero-stock product if we only checked the parsed value.
+  // Reject blank fields explicitly
   if (priceRaw === "" || !Number.isFinite(price) || price < 0) {
     return { error: "Enter a valid price." };
   }
   if (
-    stockRaw === "" ||
-    !Number.isInteger(stock_quantity) ||
-    stock_quantity < 0
+    (!variants || variants.length === 0) &&
+    (stockRaw === "" || !Number.isInteger(stock_quantity) || stock_quantity < 0)
   ) {
     return { error: "Enter a valid stock quantity." };
   }
@@ -128,6 +176,7 @@ function parseProductForm(
       category_id,
       category_ids,
       sizes,
+      variants,
       image_url: "",
     },
     existingImages,

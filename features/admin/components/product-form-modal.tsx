@@ -29,11 +29,19 @@ import {
   createProductAction,
   updateProductAction,
 } from "@/features/admin/actions/products";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { AdminProduct } from "@/features/admin/components/products-manager";
+
+export type SizeVariantItem = {
+  id?: string;
+  size: string;
+  color?: string;
+  stock_quantity: number | "";
+};
 
 type FormState = {
   name: string;
@@ -76,6 +84,20 @@ export function ProductFormModal({
         : extractProductSizes(product))
     : [];
 
+  const initialVariants: SizeVariantItem[] =
+    product?.variants && product.variants.length > 0
+      ? product.variants.map((v) => ({
+          id: v.id,
+          size: v.size,
+          color: v.color || "",
+          stock_quantity: v.stock_quantity,
+        }))
+      : initialSizes.map((s) => ({
+          size: s,
+          color: "",
+          stock_quantity: initialSizes.length === 1 ? (product?.stock_quantity ?? 0) : 0,
+        }));
+
   const initialImages = product ? extractProductImages(product) : [];
 
   const [form, setForm] = useState<FormState>(() => ({
@@ -87,6 +109,8 @@ export function ProductFormModal({
     status: product?.status ?? "active",
     description: product?.description ? cleanProductDescription(product.description) : "",
   }));
+
+  const [sizeVariants, setSizeVariants] = useState<SizeVariantItem[]>(initialVariants);
 
   const [photos, setPhotos] = useState<PhotoItem[]>(() =>
     initialImages.map((url, i) => ({
@@ -108,6 +132,41 @@ export function ProductFormModal({
   const inFlightRef = useRef(false);
   const createdBlobUrls = useRef<Set<string>>(new Set());
 
+  // Reopen existing product and ensure actual persisted quantities come directly from Supabase
+  useEffect(() => {
+    if (mode === "edit" && product?.id) {
+      const supabase = createClient();
+      supabase
+        .from("product_variants")
+        .select("id, product_id, size, color, sku, stock_quantity, status")
+        .eq("product_id", product.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setSizeVariants(
+              data.map((v) => ({
+                id: v.id,
+                size: v.size,
+                color: v.color || "",
+                stock_quantity: v.stock_quantity,
+              })),
+            );
+            setForm((prev) => ({
+              ...prev,
+              sizes: data.map((v) => v.size),
+            }));
+          }
+        });
+    }
+  }, [mode, product?.id]);
+
+  // Derived: total stock automatically calculated from size variants
+  const calculatedTotalStock = sizeVariants.reduce((sum, v) => {
+    const q = typeof v.stock_quantity === "number" ? v.stock_quantity : 0;
+    return sum + q;
+  }, 0);
+
   // Dirty check: compare current form state with initial values
   const categoriesChanged =
     JSON.stringify([...form.category_ids].sort()) !==
@@ -116,6 +175,14 @@ export function ProductFormModal({
   const sizesChanged =
     JSON.stringify([...form.sizes].sort()) !==
     JSON.stringify([...initialSizes].sort());
+
+  const variantsChanged =
+    JSON.stringify(
+      sizeVariants.map((v) => ({ size: v.size, qty: v.stock_quantity })),
+    ) !==
+    JSON.stringify(
+      initialVariants.map((v) => ({ size: v.size, qty: v.stock_quantity })),
+    );
 
   const photosChanged =
     mode === "create"
@@ -129,6 +196,7 @@ export function ProductFormModal({
     form.name !== (product?.name ?? "") ||
     categoriesChanged ||
     sizesChanged ||
+    variantsChanged ||
     form.price !== (product ? String(product.price) : "") ||
     form.stock_quantity !== (product ? String(product.stock_quantity) : "") ||
     form.status !== (product?.status ?? "active") ||
@@ -172,24 +240,55 @@ export function ProductFormModal({
   }
 
   function toggleSize(size: string) {
-    setForm((prev) => {
-      const exists = prev.sizes.includes(size);
-      const next = exists ? prev.sizes.filter((s) => s !== size) : [...prev.sizes, size];
-      return { ...prev, sizes: next };
-    });
+    const exists = sizeVariants.some((v) => v.size.toLowerCase() === size.toLowerCase());
+    if (exists) {
+      setSizeVariants((prev) => prev.filter((v) => v.size.toLowerCase() !== size.toLowerCase()));
+      setForm((prev) => ({
+        ...prev,
+        sizes: prev.sizes.filter((s) => s.toLowerCase() !== size.toLowerCase()),
+      }));
+    } else {
+      setSizeVariants((prev) => [...prev, { size, color: "", stock_quantity: 0 }]);
+      setForm((prev) => ({
+        ...prev,
+        sizes: [...prev.sizes, size],
+      }));
+    }
   }
 
   function handleAddCustomSize() {
     const trimmed = customSizeInput.trim().toUpperCase();
     if (!trimmed) return;
-    if (!form.sizes.includes(trimmed)) {
-      setForm((prev) => ({ ...prev, sizes: [...prev.sizes, trimmed] }));
+    const exists = sizeVariants.some((v) => v.size.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      setSizeVariants((prev) => [...prev, { size: trimmed, color: "", stock_quantity: 0 }]);
+      setForm((prev) => ({
+        ...prev,
+        sizes: [...prev.sizes, trimmed],
+      }));
     }
     setCustomSizeInput("");
   }
 
   function handleRemoveSize(size: string) {
-    setForm((prev) => ({ ...prev, sizes: prev.sizes.filter((s) => s !== size) }));
+    setSizeVariants((prev) => prev.filter((v) => v.size.toLowerCase() !== size.toLowerCase()));
+    setForm((prev) => ({
+      ...prev,
+      sizes: prev.sizes.filter((s) => s.toLowerCase() !== size.toLowerCase()),
+    }));
+  }
+
+  function handleUpdateSizeQuantity(size: string, qtyStr: string) {
+    const val = qtyStr === "" ? "" : Math.max(0, parseInt(qtyStr, 10) || 0);
+    setSizeVariants((prev) =>
+      prev.map((v) => (v.size.toLowerCase() === size.toLowerCase() ? { ...v, stock_quantity: val } : v)),
+    );
+  }
+
+  function handleUpdateSizeColor(size: string, colorStr: string) {
+    setSizeVariants((prev) =>
+      prev.map((v) => (v.size.toLowerCase() === size.toLowerCase() ? { ...v, color: colorStr } : v)),
+    );
   }
 
   function handleFilesSelected(fileList: FileList | File[] | null) {
@@ -318,14 +417,28 @@ export function ProductFormModal({
       setFormError("Enter a valid price.");
       return;
     }
-    if (
-      form.stock_quantity === "" ||
-      !Number.isInteger(Number(form.stock_quantity)) ||
-      Number(form.stock_quantity) < 0
-    ) {
-      setFormError("Enter a valid stock quantity.");
-      return;
+    if (sizeVariants.length > 0) {
+      for (const v of sizeVariants) {
+        if (
+          v.stock_quantity === "" ||
+          !Number.isInteger(Number(v.stock_quantity)) ||
+          Number(v.stock_quantity) < 0
+        ) {
+          setFormError(`Stock for size ${v.size} must be a valid non-negative whole number.`);
+          return;
+        }
+      }
+    } else {
+      if (
+        form.stock_quantity === "" ||
+        !Number.isInteger(Number(form.stock_quantity)) ||
+        Number(form.stock_quantity) < 0
+      ) {
+        setFormError("Enter a valid stock quantity.");
+        return;
+      }
     }
+
     if (photos.length === 0) {
       setFileError("At least one product photo is required.");
       return;
@@ -335,11 +448,29 @@ export function ProductFormModal({
     formData.set("name", form.name.trim());
     formData.set("description", form.description.trim());
     formData.set("price", String(Number(form.price)));
-    formData.set("stock_quantity", String(Number(form.stock_quantity)));
     formData.set("status", form.status);
     formData.set("category_ids", form.category_ids.join(","));
     formData.set("category_id", form.category_ids[0] ?? "");
-    formData.set("sizes", form.sizes.join(","));
+
+    if (sizeVariants.length > 0) {
+      formData.set("stock_quantity", String(calculatedTotalStock));
+      formData.set("sizes", sizeVariants.map((v) => v.size).join(","));
+      formData.set(
+        "variants",
+        JSON.stringify(
+          sizeVariants.map((v) => ({
+            id: v.id,
+            size: v.size,
+            color: v.color || null,
+            stock_quantity: Number(v.stock_quantity) || 0,
+          })),
+        ),
+      );
+    } else {
+      formData.set("stock_quantity", String(Number(form.stock_quantity)));
+      formData.set("sizes", "");
+    }
+
     if (mode === "edit" && product) {
       formData.set("id", product.id);
     }
@@ -652,18 +783,36 @@ export function ProductFormModal({
                   placeholder="12.99"
                 />
               </Field>
-              <Field label="Stock quantity" htmlFor="product-stock">
-                <Input
-                  id="product-stock"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
-                  value={form.stock_quantity}
-                  onChange={(event) => set("stock_quantity", event.target.value)}
-                  placeholder="50"
-                />
-              </Field>
+
+              {sizeVariants.length > 0 ? (
+                <div>
+                  <Label htmlFor="calculated-total-stock">Total Stock</Label>
+                  <div className="mt-1.5 flex h-9 items-center justify-between border border-border bg-muted/20 px-3 text-sm">
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-foreground">
+                      <span>{calculatedTotalStock}</span>
+                      <span className="text-[11px] font-sans font-normal text-muted-foreground uppercase">
+                        units
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      (Auto-calculated from sizes)
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <Field label="Stock quantity (No sizes)" htmlFor="product-stock">
+                  <Input
+                    id="product-stock"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    value={form.stock_quantity}
+                    onChange={(event) => set("stock_quantity", event.target.value)}
+                    placeholder="50"
+                  />
+                </Field>
+              )}
             </div>
 
             {/* Categories Multi-Select */}
@@ -711,24 +860,28 @@ export function ProductFormModal({
               </div>
             </div>
 
-            {/* Available Sizes Multi-Select & Custom Input */}
-            <div>
+            {/* Available Sizes & Size-Level Inventory Management */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Available Sizes</Label>
-                <span className="text-xs text-muted-foreground">
-                  {form.sizes.length === 0
-                    ? "None (no size selection on storefront)"
-                    : `${form.sizes.length} selected`}
+                <div>
+                  <Label>Available Sizes & Inventory</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Select the available sizes and enter the stock count for each. Total stock is calculated automatically.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {sizeVariants.length === 0
+                    ? "Single-piece (no size breakdown)"
+                    : `${sizeVariants.length} size${sizeVariants.length > 1 ? "s" : ""} configured`}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Tick standard sizes or type custom sizes below. Customers will choose their fit before adding to bag.
-              </p>
 
               {/* Standard Size Quick Toggle Buttons */}
-              <div className="mt-2.5 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {STANDARD_CLOTHING_SIZES.map((size) => {
-                  const isSelected = form.sizes.includes(size);
+                  const isSelected = sizeVariants.some(
+                    (v) => v.size.toLowerCase() === size.toLowerCase(),
+                  );
                   return (
                     <button
                       key={size}
@@ -758,7 +911,7 @@ export function ProductFormModal({
               </div>
 
               {/* Custom Size Adder */}
-              <div className="mt-3 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Input
                   value={customSizeInput}
                   onChange={(e) => setCustomSizeInput(e.target.value)}
@@ -784,28 +937,97 @@ export function ProductFormModal({
                 </Button>
               </div>
 
-              {/* Currently Selected Sizes Pills Strip */}
-              {form.sizes.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-sm border border-dashed border-border p-2 bg-muted/20">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
-                    Active sizes:
-                  </span>
-                  {form.sizes.map((size) => (
+              {/* Size-Level Inventory Quantity Inputs & Live Total Calculation */}
+              {sizeVariants.length > 0 && (
+                <div className="mt-2 border border-border divide-y divide-border bg-background">
+                  <div className="flex items-center justify-between bg-muted/40 px-3.5 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className="w-24">Size</span>
+                    <span className="w-28 text-center">Stock Count</span>
+                    <span className="w-24 text-center">Status</span>
+                    <span className="w-12 text-right">Action</span>
+                  </div>
+
+                  <div className="divide-y divide-border/60 max-h-60 overflow-y-auto">
+                    {sizeVariants.map((item) => {
+                      const qty = typeof item.stock_quantity === "number" ? item.stock_quantity : 0;
+                      const isZero = qty === 0;
+
+                      return (
+                        <div
+                          key={item.size}
+                          className="flex items-center justify-between px-3.5 py-2 hover:bg-muted/10 transition-colors"
+                        >
+                          <div className="w-24 flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center border border-border bg-muted/20 px-2 py-0.5 font-mono text-xs font-bold text-foreground">
+                              {item.size}
+                            </span>
+                          </div>
+
+                          <div className="w-28 flex justify-center">
+                            <Input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={item.stock_quantity}
+                              onChange={(e) => handleUpdateSizeQuantity(item.size, e.target.value)}
+                              className="h-8 w-24 text-center font-mono text-xs font-bold"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          <div className="w-24 flex justify-center">
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-none border",
+                                !isZero
+                                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                              )}
+                            >
+                              {!isZero ? `${qty} in stock` : "0 stock"}
+                            </span>
+                          </div>
+
+                          <div className="w-12 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSize(item.size)}
+                              title={`Remove ${item.size}`}
+                              className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Calculated Total Stock Bar */}
+                  <div className="flex items-center justify-between bg-muted/30 px-3.5 py-2.5 border-t border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Total stock:
+                      </span>
+                      <span className="font-mono text-sm font-bold text-foreground">
+                        {calculatedTotalStock}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        (automatically calculated)
+                      </span>
+                    </div>
+
                     <span
-                      key={size}
-                      className="inline-flex items-center gap-1 bg-background border border-border px-2 py-0.5 text-xs font-medium text-foreground rounded-none shadow-2xs"
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5",
+                        calculatedTotalStock > 0
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "bg-destructive/10 text-destructive",
+                      )}
                     >
-                      {size}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSize(size)}
-                        title={`Remove ${size}`}
-                        className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      {calculatedTotalStock > 0 ? "In Stock" : "Zero Stock"}
                     </span>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>

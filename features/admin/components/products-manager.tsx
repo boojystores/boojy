@@ -170,14 +170,23 @@ export function ProductsManager({
   }
 
   async function handleEditClick(product: AdminProduct) {
-    // Check for active orders before opening edit modal
+    // Check for active orders and fetch fresh variants before opening edit modal
     const supabase = createClient();
-    const { data: orderItems } = await supabase
-      .from("order_items")
-      .select("order_id")
-      .eq("product_id", product.id)
-      .limit(100);
+    const [orderItemsRes, variantsRes] = await Promise.all([
+      supabase
+        .from("order_items")
+        .select("order_id")
+        .eq("product_id", product.id)
+        .limit(100),
+      supabase
+        .from("product_variants")
+        .select("id, product_id, size, color, sku, stock_quantity, status")
+        .eq("product_id", product.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true }),
+    ]);
 
+    const orderItems = orderItemsRes.data;
     let hasActiveOrders = false;
     if (orderItems && orderItems.length > 0) {
       const orderIds = [...new Set(orderItems.map((oi) => oi.order_id))];
@@ -190,7 +199,12 @@ export function ProductsManager({
       hasActiveOrders = (count ?? 0) > 0;
     }
 
-    setModal({ mode: "edit", product, hasOrders: hasActiveOrders });
+    const enrichedProduct: AdminProduct = {
+      ...product,
+      variants: variantsRes.data && variantsRes.data.length > 0 ? (variantsRes.data as any) : product.variants,
+    };
+
+    setModal({ mode: "edit", product: enrichedProduct, hasOrders: hasActiveOrders });
   }
 
   async function handleDelete(id: string) {

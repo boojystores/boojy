@@ -100,6 +100,7 @@ export async function placeOrder(
     p_items: items.map((line) => ({
       product_id: line.productId,
       quantity: line.quantity,
+      size: line.selectedSize || null,
     })),
   };
 

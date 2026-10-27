@@ -20,6 +20,7 @@ export type CartItem = {
   stock_quantity: number;
   quantity: number;
   selected_size?: string;
+  variant_id?: string;
   /**
    * Set by reconciliation (ADR-0013) when the Product no longer exists or is
    * no longer active. Unavailable lines stay visible so the Customer can see
@@ -80,9 +81,21 @@ export const useCartStore = create<CartState>()(
 
       addItem: (product, quantity = 1, selectedSize) =>
         set((state) => {
-          // Never let an out-of-stock Product into the cart as a phantom
+          // If product has size variants, find the specific variant's stock
+          const matchingVariant =
+            selectedSize && product.variants && product.variants.length > 0
+              ? product.variants.find(
+                  (v) => v.size.toLowerCase() === selectedSize.toLowerCase(),
+                )
+              : undefined;
+
+          const effectiveStock = matchingVariant
+            ? matchingVariant.stock_quantity
+            : product.stock_quantity;
+
+          // Never let an out-of-stock Product or variant into the cart as a phantom
           // zero-quantity line — the UI blocks this, but the store is the seam.
-          if (product.stock_quantity <= 0) return state;
+          if (effectiveStock <= 0) return state;
 
           const lineId = selectedSize ? `${product.id}::${selectedSize}` : product.id;
           const existing = state.items.find((item) => item.id === lineId);
@@ -94,9 +107,10 @@ export const useCartStore = create<CartState>()(
                 item.id === lineId
                   ? {
                       ...item,
+                      stock_quantity: effectiveStock,
                       quantity: Math.min(
                         item.quantity + qty,
-                        item.stock_quantity,
+                        effectiveStock,
                       ),
                     }
                   : item,
@@ -110,9 +124,10 @@ export const useCartStore = create<CartState>()(
             name: product.name,
             price: product.price,
             image_url: product.image_url,
-            stock_quantity: product.stock_quantity,
-            quantity: Math.min(qty, product.stock_quantity),
+            stock_quantity: effectiveStock,
+            quantity: Math.min(qty, effectiveStock),
             selected_size: selectedSize || undefined,
+            variant_id: matchingVariant?.id,
           };
           return { items: [...state.items, line] };
         }),
@@ -205,14 +220,47 @@ export function reconcileCart(
       return { ...item, unavailable: true };
     }
 
-    const quantity = Math.min(item.quantity, Math.max(1, product.stock_quantity));
+    let liveStock = product.stock_quantity;
+    let variantId = item.variant_id;
+    let variantActive = true;
+
+    if (item.selected_size && product.variants && product.variants.length > 0) {
+      const variant = product.variants.find(
+        (v) => v.size.toLowerCase() === item.selected_size?.toLowerCase(),
+      );
+      if (!variant || variant.status !== "active") {
+        variantActive = false;
+        liveStock = 0;
+      } else {
+        liveStock = variant.stock_quantity;
+        variantId = variant.id;
+      }
+    }
+
+    // Flag unavailable if product is retired, variant retired, or stock is 0
+    if (!variantActive || liveStock <= 0) {
+      if (!item.unavailable) result.unavailable.push(item.id);
+      return {
+        ...item,
+        name: product.name,
+        price: product.price,
+        image_url: product.image_url,
+        stock_quantity: liveStock,
+        variant_id: variantId,
+        quantity: 1,
+        unavailable: true,
+      };
+    }
+
+    const quantity = Math.min(item.quantity, Math.max(1, liveStock));
     const changed =
       item.name !== product.name ||
       item.price !== product.price ||
       item.image_url !== product.image_url ||
-      item.stock_quantity !== product.stock_quantity ||
+      item.stock_quantity !== liveStock ||
       item.quantity !== quantity ||
-      item.unavailable === true;
+      item.unavailable === true ||
+      item.variant_id !== variantId;
     if (changed) result.updated.push(item.id);
 
     return {
@@ -220,8 +268,9 @@ export function reconcileCart(
       name: product.name,
       price: product.price,
       image_url: product.image_url,
-      stock_quantity: product.stock_quantity,
+      stock_quantity: liveStock,
       quantity,
+      variant_id: variantId,
       unavailable: false,
     };
   });
